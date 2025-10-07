@@ -218,7 +218,6 @@ date_plus_10bd = date + BDay(10)
 print(f"后10个交易日: {date_plus_10bd}")
 
 
-
 import pandas_market_calendars as mcal
 
 nyse = mcal.get_calendar('NYSE')
@@ -229,3 +228,167 @@ trading_days = schedule.index
 ref_date = pd.Timestamp("2023-10-07")
 past_30 = trading_days[trading_days < ref_date][-30]
 print("第30个交易日前的日期：", past_30)
+
+
+
+
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+import matplotlib.pyplot as plt
+
+# ==== 1. 模拟数据 ====
+np.random.seed(42)
+dates = pd.bdate_range(start='2020-01-01', periods=1000)
+df = pd.DataFrame(index=dates)
+df['CPI'] = np.random.normal(2, 0.05, size=len(df))
+df['PMI'] = np.random.normal(50, 1, size=len(df))
+df['Interest_Rate'] = np.random.normal(1.5, 0.02, size=len(df))
+df['FX_Spot'] = 100 + np.cumsum(np.random.normal(0, 0.2, size=len(df)))
+df['FX_Forward_1M'] = df['FX_Spot'] * (1 + 0.0005 * 30)  # 模拟远期价格
+
+# ==== 2. 滑动窗口逐日预测 ====
+forecast_start_lag = 180
+forecast_end_lag = 30
+
+predictions = []
+target_prices = []
+prediction_dates = []
+
+model = LinearRegression()  # 也可以替换成任意sklearn模型
+
+for current_idx in range(forecast_start_lag, len(df)):
+    current_date = df.index[current_idx]
+
+    # 构造特征窗口 T-180 到 T-30
+    start_idx = current_idx - forecast_start_lag
+    end_idx = current_idx - forecast_end_lag
+
+    if end_idx <= start_idx:
+        continue  # 跳过不满足窗口的情况
+
+    macro_window = df.iloc[start_idx:end_idx][['CPI', 'PMI', 'Interest_Rate']]
+    X_sample = macro_window.mean().values.reshape(1, -1)
+    
+    # 模拟训练集：滑动窗口训练（可选项）
+    # 实际中也可以使用全局模型，只用来预测每一天
+    X_train = df.iloc[start_idx:end_idx][['CPI', 'PMI', 'Interest_Rate']]
+    y_train = df.iloc[start_idx:end_idx]['FX_Forward_1M']
+    model.fit(X_train, y_train)  # 滑动训练
+    
+    # 预测当前交易日远期价格
+    pred = model.predict(X_sample)[0]
+    actual = df.iloc[current_idx]['FX_Forward_1M']
+
+    predictions.append(pred)
+    target_prices.append(actual)
+    prediction_dates.append(current_date)
+
+# ==== 3. 构建预测 DataFrame ====
+df_pred = pd.DataFrame({
+    'Predicted': predictions,
+    'Actual': target_prices
+}, index=prediction_dates)
+
+# ==== 4. 可视化 ====
+plt.figure(figsize=(14,6))
+plt.plot(df_pred.index, df_pred['Actual'], label='Actual FX Forward 1M')
+plt.plot(df_pred.index, df_pred['Predicted'], label='Predicted', linestyle='--')
+plt.title('Daily Rolling Prediction of FX Forward Price (T-180 to T-30)')
+plt.xlabel('Date')
+plt.ylabel('FX Forward Price')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
+from xgboost import XGBRegressor
+from sklearn.metrics import mean_squared_error
+
+# ==== 1. 模拟数据 ====
+np.random.seed(42)
+dates = pd.bdate_range(start='2020-01-01', periods=1000)
+df = pd.DataFrame(index=dates)
+df['CPI'] = np.random.normal(2, 0.05, size=len(df))
+df['PMI'] = np.random.normal(50, 1, size=len(df))
+df['Interest_Rate'] = np.random.normal(1.5, 0.02, size=len(df))
+df['FX_Spot'] = 100 + np.cumsum(np.random.normal(0, 0.2, size=len(df)))
+df['FX_Forward_1M'] = df['FX_Spot'] * (1 + 0.0005 * 30)
+
+# ==== 2. 回归器配置 ====
+models = {
+    'LinearRegression': LinearRegression(),
+    'RandomForest': RandomForestRegressor(n_estimators=100, max_depth=5, random_state=42),
+    'XGBoost': XGBRegressor(n_estimators=100, max_depth=3, learning_rate=0.1, verbosity=0),
+    'SVR': SVR(kernel='rbf', C=1.0, epsilon=0.2)
+}
+
+# ==== 3. 滑动窗口预测函数 ====
+def rolling_forecast(df, model, start_lag=180, end_lag=30):
+    predictions = []
+    actuals = []
+    dates = []
+
+    for current_idx in range(start_lag, len(df)):
+        current_date = df.index[current_idx]
+
+        # 构建窗口
+        start_idx = current_idx - start_lag
+        end_idx = current_idx - end_lag
+        if end_idx <= start_idx:
+            continue
+
+        # 滞后窗口特征
+        macro_window = df.iloc[start_idx:end_idx][['CPI', 'PMI', 'Interest_Rate']]
+        X_sample = macro_window.mean().values.reshape(1, -1)
+
+        # 滑动训练
+        X_train = df.iloc[start_idx:end_idx][['CPI', 'PMI', 'Interest_Rate']]
+        y_train = df.iloc[start_idx:end_idx]['FX_Forward_1M']
+        model.fit(X_train, y_train)
+
+        # 当前日预测
+        y_pred = model.predict(X_sample)[0]
+        y_actual = df.iloc[current_idx]['FX_Forward_1M']
+
+        predictions.append(y_pred)
+        actuals.append(y_actual)
+        dates.append(current_date)
+
+    return pd.DataFrame({
+        'Date': dates,
+        'Predicted': predictions,
+        'Actual': actuals
+    }).set_index('Date')
+
+# ==== 4. 多模型预测 ====
+results = {}
+for name, model in models.items():
+    print(f"Running model: {name}")
+    results[name] = rolling_forecast(df, model)
+
+# ==== 5. 可视化对比 ====
+plt.figure(figsize=(14, 6))
+for name, result_df in results.items():
+    plt.plot(result_df.index, result_df['Predicted'], label=f'{name} Prediction', alpha=0.7)
+
+plt.plot(result_df.index, result_df['Actual'], label='Actual FX Forward', color='black', linewidth=2)
+plt.title("FX Forward Price Prediction by Different Models")
+plt.xlabel("Date")
+plt.ylabel("FX Forward Price")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# ==== 6. MSE对比 ====
+print("Model Performance (MSE):")
+for name, result_df in results.items():
+    mse = mean_squared_error(result_df['Actual'], result_df['Predicted'])
+    print(f"{name:16}: {mse:.6f}")
