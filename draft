@@ -1,0 +1,113 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.base import BaseEstimator
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from typing import Union
+
+class FXForecaster:
+    def __init__(self, model: Union[BaseEstimator, str] = 'linear', forecast_horizon=30, n_splits=5):
+        """
+        初始化
+        model: sklearn模型或模型名称字符串，如 'linear', 'random_forest'
+        forecast_horizon: 未来预测的交易日数
+        """
+        self.model_name = model
+        self.forecast_horizon = forecast_horizon
+        self.n_splits = n_splits
+        self.model = self._get_model(model)
+
+    def _get_model(self, model):
+        if isinstance(model, BaseEstimator):
+            return model
+        if model == 'linear':
+            return LinearRegression()
+        elif model == 'random_forest':
+            return RandomForestRegressor(n_estimators=100, max_depth=5, random_state=42)
+        else:
+            raise ValueError(f"Unsupported model: {model}")
+
+    def generate_data(self, n_days=1000, seed=42):
+        """
+        模拟数据生成：交易日序列 + 宏观变量 + FX价格
+        """
+        np.random.seed(seed)
+        date_range = pd.bdate_range(start="2020-01-01", periods=n_days)
+        df = pd.DataFrame(index=date_range)
+        df['CPI'] = np.random.normal(2, 0.1, size=n_days)
+        df['PMI'] = np.random.normal(50, 2, size=n_days)
+        df['Interest_Rate'] = np.random.normal(1.5, 0.05, size=n_days)
+        df['FX_Spot'] = 100 + np.cumsum(np.random.normal(0, 0.2, size=n_days))
+        df['FX_Forward_1M'] = df['FX_Spot'] * (1 + 0.0005 * self.forecast_horizon)
+        return df
+
+    def prepare_data(self, df: pd.DataFrame):
+        """
+        添加目标变量（未来第N个交易日的现汇价格）
+        """
+        df['FX_Spot_30d_future'] = df['FX_Spot'].shift(-self.forecast_horizon)
+        df = df.dropna()
+        return df
+
+    def train_predict(self, df: pd.DataFrame, features: list):
+        """
+        时间序列训练和预测
+        """
+        X = df[features]
+        y = df['FX_Spot_30d_future']
+        preds = np.full(len(df), np.nan)
+
+        tscv = TimeSeriesSplit(n_splits=self.n_splits)
+        for train_idx, test_idx in tscv.split(X):
+            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+            y_train = y.iloc[train_idx]
+            model = self._get_model(self.model_name)
+            model.fit(X_train, y_train)
+            preds[test_idx] = model.predict(X_test)
+
+        df['Prediction'] = preds
+        return df
+
+    def generate_signals(self, df: pd.DataFrame):
+        """
+        根据预测值与远期价格生成交易信号
+        """
+        df['Signal'] = np.where(df['Prediction'] > df['FX_Forward_1M'], 1, -1)
+        return df
+
+    def plot(self, df: pd.DataFrame):
+        """
+        可视化预测结果
+        """
+        plt.figure(figsize=(14,6))
+        plt.plot(df.index, df['FX_Spot'], label='Spot FX Price', alpha=0.6)
+        plt.plot(df.index, df['Prediction'], label=f'Prediction ({self.model_name})', linestyle='--')
+        plt.title(f"FX Price Forecast ({self.forecast_horizon} Trading Days Ahead)")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+    def run(self):
+        """
+        一键运行流程
+        """
+        df = self.generate_data()
+        df = self.prepare_data(df)
+        features = ['CPI', 'PMI', 'Interest_Rate']
+        df = self.train_predict(df, features)
+        df = self.generate_signals(df)
+        self.plot(df)
+        return df
+
+# 示例：使用线性回归
+fx_model_linear = FXForecaster(model='linear')
+df_linear = fx_model_linear.run()
+print(df_linear[['FX_Spot', 'FX_Forward_1M', 'Prediction', 'Signal']].tail(5))
+
+# 示例：使用随机森林
+fx_model_rf = FXForecaster(model='random_forest')
+df_rf = fx_model_rf.run()
+print(df_rf[['FX_Spot', 'FX_Forward_1M', 'Prediction', 'Signal']].tail(5))
