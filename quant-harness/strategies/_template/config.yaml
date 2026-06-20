@@ -1,0 +1,23 @@
+# Copy this folder to strategies/<your_strategy_name>/ and edit this file.
+name: _template
+description: "Template strategy — replace with a one-line description of the trade idea."
+
+# Which engine signals/backtest/run.py is written against.
+# One of: pandas (handwritten loop, matches existing repo style), vectorbt, backtrader.
+engine: pandas
+
+universe: []  # e.g. ["CN10Y", "CN5Y", "USDCNH"]
+
+# Rolling out-of-sample validation window, in bars (trading days for daily data).
+walk_forward:
+  train_size: 252
+  test_size: 63
+  step: 63
+
+# Performance bar this strategy must clear in `make verify-full` (perf-gate).
+# Set these deliberately — they are the strategy's own definition of "good enough",
+# not a formality. Tightening them later requires a DECISIONS.md entry.
+gate:
+  min_sharpe: 0.5
+  max_drawdown: -0.20
+  max_turnover: 0.5

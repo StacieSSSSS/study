@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make verify)",
+      "Bash(make verify-full:*)",
+      "Bash(make lint)",
+      "Bash(make typecheck)",
+      "Bash(make test-unit)",
+      "Bash(make bias-check:*)",
+      "Bash(make walk-forward:*)",
+      "Bash(make perf-gate:*)",
+      "Bash(ruff check .)",
+      "Bash(pyright)",
+      "Bash(pytest tests/)",
+      "Bash(python3 -m core.validation.bias_check:*)",
+      "Bash(python3 -m core.validation.walk_forward:*)",
+      "Bash(python3 -m core.reporting.gate:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
