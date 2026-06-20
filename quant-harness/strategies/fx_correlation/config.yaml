@@ -1,0 +1,97 @@
+# Single source of truth for fx_correlation. Every model reads its parameters
+# from here — don't hardcode thresholds in code. To add a pair, add it to
+# `pairs` and `ticker_map`; everything downstream (combos, rolling windows,
+# models, conviction report) picks it up automatically.
+
+name: fx_correlation
+description: >
+  Multi-model FX correlation trading framework. Ranks all pairwise
+  combinations of the configured FX pairs by trading opportunity, using
+  three independent lenses (correlation strength/stability, correlation
+  divergence, cointegration), and blends them for backtesting and a daily
+  conviction report.
+engine: pandas
+
+# --- Universe -----------------------------------------------------------
+# `pairs` is the display name used everywhere (configs, reports, code).
+# `ticker_map` is the yfinance ticker for each. USDCNH has no usable
+# history on yfinance (checked 2026-06-20: only 1 row over 2 years) — USDCNY
+# is used as an onshore proxy. See DECISIONS.md D004. Flagged here so it's
+# visible without digging through code: ~14% of USDCNY=X days are stale
+# repeats, so correlation/cointegration results involving USDCNY are noisier
+# than the other pairs.
+pairs: [EURUSD, GBPUSD, USDJPY, AUDNZD, USDCNY, USDTWD, USDKRW]
+
+ticker_map:
+  EURUSD: "EURUSD=X"
+  GBPUSD: "GBPUSD=X"
+  USDJPY: "USDJPY=X"
+  AUDNZD: "AUDNZD=X"
+  USDCNY: "USDCNY=X"   # proxy for USDCNH — see note above
+  USDTWD: "USDTWD=X"
+  USDKRW: "USDKRW=X"
+
+data:
+  history_years: 5        # how much history to fetch/cache
+  cache_dir: "data/cache"
+
+# --- Rolling correlation windows (trading days, ~21/63/126/189/252 per month) ---
+windows:
+  1m: 21
+  3m: 63
+  6m: 126
+  9m: 189
+  12m: 252
+
+# Window used as the "baseline" for divergence (Model B) and as the lookback
+# for the z-score mean-reversion engine shared by all three models.
+baseline_window: 12m
+short_window: 1m
+zscore_lookback: 21      # trading days for the rolling mean/std of the spread
+
+# --- Model A: correlation strength & stability --------------------------
+model_a:
+  weight_strength: 0.5
+  weight_stability: 0.5
+  top_k: 3                # how many combos this model trades in the backtest
+  entry_z: 1.5
+  exit_z: 0.5
+
+# --- Model B: correlation divergence/breakdown ---------------------------
+model_b:
+  top_k: 3
+  entry_z: 1.5
+  exit_z: 0.5
+  min_divergence: 0.15     # minimum |short_corr - baseline_corr| to even consider a combo
+
+# --- Model C: cointegration (ADF) ----------------------------------------
+model_c:
+  top_k: 3
+  entry_z: 1.5
+  exit_z: 0.5
+  max_adf_pvalue: 0.10      # only trade combos whose spread plausibly mean-reverts
+
+# --- Blend used by backtest/run.py for the harness-standard gated metric ---
+blend:
+  model_a: 0.3333
+  model_b: 0.3333
+  model_c: 0.3334
+  max_gross_exposure: 1.0   # sum(|weights|) cap across all underlying FX pairs
+
+# --- Conviction report thresholds (reporting/conviction.py) --------------
+conviction:
+  high_threshold: 70
+  medium_threshold: 40
+  top_n_report: 10
+
+# --- Walk-forward (in-sample/out-of-sample), trading days ----------------
+walk_forward:
+  train_size: 252
+  test_size: 63
+  step: 63
+
+# --- Performance gate for the blended strategy (make perf-gate) ----------
+gate:
+  min_sharpe: 0.3
+  max_drawdown: -0.25
+  max_turnover: 3.0

@@ -115,3 +115,4 @@ data/loader.py → signals/signal.py（经 PointInTimeFrame）→ backtest/run.p
 | 日期 | 变更 | 说明 |
 |---|---|---|
 | 2026-06-20 | 初始化 | 创建 quant-harness：core/（point-in-time 数据访问、偏差扫描、滚动窗口验证、绩效指标、门槛检查）+ strategies/_template 脚手架 + Makefile/CLAUDE.md/DECISIONS.md |
+| 2026-06-20 | 新增策略 | `strategies/fx_correlation`：多模型外汇相关性交易框架（强度/稳定性、背离、cointegration 三模型 + conviction 排名 + 每日刷新）。首次出现"策略内部多模型共享单一交易机制"模式，详见 DECISIONS.md D004-D006。`signals/signal.py` 的返回类型从 `_template` 的单一 float 改为 `pd.Series`（多资产权重向量），属有意为之的偏离，已在该策略 README 注明。 |

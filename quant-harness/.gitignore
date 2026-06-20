@@ -6,3 +6,4 @@ reports/*/
 !reports/.gitkeep
 .venv/
 *.egg-info/
+strategies/*/data/cache/

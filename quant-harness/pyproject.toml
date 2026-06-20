@@ -15,6 +15,14 @@ vectorbt = ["vectorbt"]
 backtrader = ["backtrader"]
 zipline = ["zipline-reloaded"]
 dev = ["pytest>=8.0", "ruff>=0.6", "pyright>=1.1"]
+# strategies/fx_correlation: live data + cointegration testing + report rendering.
+fx_correlation = [
+    "yfinance>=0.2",
+    "statsmodels>=0.14",
+    "pyarrow>=15.0",
+    "tabulate>=0.9",
+    "matplotlib>=3.8",
+]
 
 [tool.ruff]
 line-length = 110

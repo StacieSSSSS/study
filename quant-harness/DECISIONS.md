@@ -53,3 +53,39 @@
   - 强制统一用 vectorbt：参数搜索效率高，但事件驱动逻辑表达能力弱于 backtrader/zipline，且与现有 pandas 手写代码风格不兼容，迁移成本高，未采用。
 - 影响: `core/metrics/performance.py` 的输入约定为标准 pandas Series/DataFrame（returns、equity curve、weights），任何引擎只要能产出这些标准结构即可复用门槛检查和报告生成。
 - 关联: 无
+
+## D004 - USDCNH 用 USDCNY 代用（yfinance 数据源限制）
+
+- 日期: 2026-06-20
+- 状态: 已采纳
+- 背景: `fx_correlation` 策略最初的货币对清单包含 USDCNH（离岸人民币），但 yfinance 的 `USDCNH=X`/`CNH=X` 几乎没有可用历史（实测 2 年历史只有 1 行数据），无法用于滚动相关性/回测。
+- 决策: 用 `USDCNY=X`（在岸人民币）作为代用，在 `config.yaml` 和 `README.md` 中明确标注这是代用且数据质量一般（~14% 交易日是停滞重复值）。
+- 备选方案:
+  - 暂时跳过该货币对：保留了清单完整性诉求但少了一个用户明确要求的对，未采用（用户选择了"用 USDCNY 代用"而非跳过）。
+  - 接入其他数据源单独拉 CNH：增加架构复杂度（需要额外数据源/凭证管理），且当前阶段 yfinance 已能覆盖其余 6 个对，暂不必为单一货币对引入第二套数据管道，未采用。
+- 影响: 任何涉及 USDCNY 的相关性/cointegration 结果都应预期噪音更大；如果未来获得更好的 CNH 数据源（比如现有 repo 里的 `CNH_fwd.xlsx` 手动导入数据风格），应替换 `config.yaml` 的 `ticker_map.USDCNY` 对应的数据接入方式。
+- 关联: `strategies/fx_correlation/config.yaml`, `strategies/fx_correlation/README.md`
+
+## D005 - 多模型共享一套交易机制，只在"选哪些对"上分叉
+
+- 日期: 2026-06-20
+- 状态: 已采纳
+- 背景: `fx_correlation` 要求建立 3 个模型（强度/稳定性、背离、cointegration）并各自给出回测结果用于合成 conviction。如果三个模型各自独立实现交易执行逻辑，会有大量重复代码且难以保证可比性。
+- 决策: 三个模型只实现一个 `selection_score(metrics, cfg) -> float` 函数（决定"选哪些货币对组合"），共享的 hedge-ratio z-score 均值回归交易机制统一放在 `models/base.py`。Conviction 通过三模型对全部组合的排名取平均得到（用户在对话中确认排名法而非原始分数加权）。
+- 备选方案:
+  - 三个模型各自从头实现交易逻辑：更灵活但难以比较三者的"贡献"是否来自选股能力还是执行细节差异，未采用。
+  - 模型分数直接加权求和（而非排名）：分数量纲不同（强度分数 vs p-value vs 背离幅度），直接加权需要额外的归一化假设，用户明确选择了排名法以避免这个问题，未采用。
+- 影响: 新增第 4 个模型只需实现 `selection_score` + `NEED_ADF`，并在 `backtest/run.py`/`reporting/conviction.py` 的模型列表里注册，详见 `strategies/fx_correlation/README.md`"Extending the framework"。
+- 关联: `strategies/fx_correlation/models/base.py`
+
+## D006 - 相关性/cointegration 计算限定在滚动窗口内，而非全样本
+
+- 日期: 2026-06-20
+- 状态: 已采纳
+- 背景: 初版实现里，回测每个 as_of 日期都对截止当日的*全部*历史（point-in-time 安全，但样本量随回测推进不断增长）计算相关性和 ADF 检验，导致单次全样本回测（~1300 个交易日）耗时从几分钟膨胀到完全跑不完（ADF 检验的 lag 搜索成本随样本量增长，且 21 个组合 × 上千个交易日 × 3 个模型，总调用量级在十万次以上）。
+- 决策: 把相关性/z-score/ADF 检验的输入限定在最长配置窗口（当前是 `windows.12m=252` 个交易日）内的最近数据，而不是 point-in-time 视图里全部可见的历史；同时把 `adfuller` 的 `maxlag` 从默认（随样本量增长）固定为 5。
+- 备选方案:
+  - 保持全样本输入，只优化实现细节（如用 numpy 代替 pandas 算相关系数）：实测有帮助但不够（21 组合 × 上千日仍然太慢），且全样本 ADF 检验在回测后期会用到 4-5 年前的数据，与"用最近相关性判断现在能不能交易"的初始设计意图本身就不一致，未采用为唯一手段。
+  - 把 ADF 检验只做一次（在 train 窗口）而非每个 as_of 都重新检验：性能最好，但会让 cointegration 关系的"实时性"判断退化为固定假设，与 Model C 的设计目的（实时筛选当前仍然 cointegrated 的对）冲突，未采用。
+- 影响: 相关性/cointegration 结果现在反映"最近 12 个月"的关系，而非"从数据起点到当前"的关系——这本身更贴近实盘判断逻辑，且是预期之中的副作用而非妥协。全量回测（`make walk-forward STRATEGY=fx_correlation`、`python3 -m strategies.fx_correlation.backtest.run`）耗时降到 ~3-4 分钟，可接受。
+- 关联: `strategies/fx_correlation/models/base.py::compute_combo_metrics`, `strategies/fx_correlation/lib/correlation.py`, `strategies/fx_correlation/lib/cointegration.py::adf_pvalue`
