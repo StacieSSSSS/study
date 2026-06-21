@@ -41,6 +41,10 @@ writes:
 - `reports/fx_correlation/conviction_latest.json` — just the top combo, for quick checks
 
 Top of the table = highest average rank across all three models = highest conviction.
+Each row's printed report also includes a `reason`: which model ranked it best
+and the concrete number behind that (correlation level, divergence magnitude,
+or ADF statistic/p-value), plus which other models agree (rank in their own
+top quartile). `reason` is also a column in the saved CSV.
 
 ## Validating the strategy
 

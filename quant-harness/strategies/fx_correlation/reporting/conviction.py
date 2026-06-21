@@ -79,20 +79,74 @@ def _direction_label(avg_zscore: float) -> str:
     return "short pair2 / long pair1" if avg_zscore > 0 else "long pair2 / short pair1"
 
 
+MODEL_LABELS = {
+    "model_a_strength": "Model A(强度/稳定性)",
+    "model_b_divergence": "Model B(背离)",
+    "model_c_cointegration": "Model C(cointegration)",
+}
+
+
+def _model_detail(model_name: str, row: pd.Series, config: dict, n_combos: int) -> str:
+    """The concrete number that drove `model_name`'s ranking of this combo."""
+    rank = int(cast(float, row[f"rank_{model_name}"]))
+    if model_name == "model_a_strength":
+        c_short = cast(float, row[f"corr_{config['short_window']}_{model_name}"])
+        c_base = cast(float, row[f"corr_{config['baseline_window']}_{model_name}"])
+        detail = (
+            f"{config['short_window']}相关性{c_short:.2f}、{config['baseline_window']}相关性{c_base:.2f}，"
+            "多窗口下相关性强且一致"
+        )
+    elif model_name == "model_b_divergence":
+        c_short = cast(float, row[f"corr_{config['short_window']}_{model_name}"])
+        c_base = cast(float, row[f"corr_{config['baseline_window']}_{model_name}"])
+        divergence = abs(c_short - c_base) if pd.notna(c_short) and pd.notna(c_base) else float("nan")
+        detail = (
+            f"{config['short_window']}相关性{c_short:.2f} 偏离 {config['baseline_window']}基准{c_base:.2f}，"
+            f"背离幅度{divergence:.2f}"
+        )
+    else:
+        adf_p = cast(float, row[f"adf_p_{model_name}"])
+        adf_stat = cast(float, row[f"adf_stat_{model_name}"])
+        p_text = "<0.001" if adf_p < 0.001 else f"{adf_p:.3f}"
+        detail = (
+            f"价差ADF检验统计量={adf_stat:.1f}（越负越显著），p值{p_text}，"
+            "存在统计意义上的均值回归证据"
+        )
+    return f"{MODEL_LABELS[model_name]}排名第{rank}/{n_combos}：{detail}"
+
+
+def _build_reason(row: pd.Series, config: dict, n_combos: int) -> str:
+    ranks = {name: row[f"rank_{name}"] for name in MODEL_LABELS}
+    best_model = min(ranks, key=lambda name: ranks[name])
+    main_reason = _model_detail(best_model, row, config, n_combos)
+
+    top_quartile = max(1, round(n_combos * 0.25))
+    agreeing = [
+        MODEL_LABELS[name] for name, rank in ranks.items() if name != best_model and rank <= top_quartile
+    ]
+    if agreeing:
+        return f"{main_reason}；{'、'.join(agreeing)}也将其排进前{top_quartile}"
+    return main_reason
+
+
 def build_conviction_table(config: dict, model_tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
     n_combos = len(next(iter(model_tables.values())))
     worst_rank = n_combos
+    corr_cols = [f"corr_{name}" for name in config["windows"]]
 
     slim_tables: list[pd.DataFrame] = []
     for model_name, table in model_tables.items():
         rank_filled = cast(pd.Series, table["rank"]).fillna(worst_rank)
-        slim = pd.DataFrame({
+        fields = {
             "pair1": table["pair1"],
             "pair2": table["pair2"],
             f"rank_{model_name}": rank_filled,
             f"zscore_{model_name}": table["zscore"],
-        })
-        slim_tables.append(slim)
+            f"adf_p_{model_name}": table["adf_p"],
+            f"adf_stat_{model_name}": table["adf_stat"],
+        }
+        fields.update({f"{col}_{model_name}": table[col] for col in corr_cols})
+        slim_tables.append(pd.DataFrame(fields))
 
     merged = slim_tables[0]
     for slim in slim_tables[1:]:
@@ -116,6 +170,7 @@ def build_conviction_table(config: dict, model_tables: dict[str, pd.DataFrame]) 
 
     merged["conviction"] = merged["conviction_score"].apply(label)
     merged["suggested_direction"] = merged["avg_zscore"].apply(_direction_label)
+    merged["reason"] = merged.apply(lambda row: _build_reason(row, config, n_combos), axis=1)
 
     merged = merged.sort_values("conviction_score", ascending=False).reset_index(drop=True)
     merged.insert(0, "overall_rank", range(1, len(merged) + 1))
@@ -125,12 +180,18 @@ def build_conviction_table(config: dict, model_tables: dict[str, pd.DataFrame]) 
 def render_report(conviction_table: pd.DataFrame, top_n: int) -> str:
     display_cols = [
         "overall_rank", "pair1", "pair2", "conviction_score", "conviction",
-        "avg_zscore", "suggested_direction",
+        "suggested_direction", "reason",
     ]
     top = conviction_table[display_cols].head(top_n).copy()
     top["conviction_score"] = top["conviction_score"].round(1)
-    top["avg_zscore"] = top["avg_zscore"].round(2)
-    return top.to_string(index=False)
+    lines = []
+    for _, row in top.iterrows():
+        lines.append(
+            f"#{row['overall_rank']} {row['pair1']}-{row['pair2']}  "
+            f"[{row['conviction']} {row['conviction_score']}]  {row['suggested_direction']}\n"
+            f"    -> {row['reason']}"
+        )
+    return "\n".join(lines)
 
 
 def run(refresh: bool = True) -> pd.DataFrame:

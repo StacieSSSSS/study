@@ -89,3 +89,15 @@
   - 把 ADF 检验只做一次（在 train 窗口）而非每个 as_of 都重新检验：性能最好，但会让 cointegration 关系的"实时性"判断退化为固定假设，与 Model C 的设计目的（实时筛选当前仍然 cointegrated 的对）冲突，未采用。
 - 影响: 相关性/cointegration 结果现在反映"最近 12 个月"的关系，而非"从数据起点到当前"的关系——这本身更贴近实盘判断逻辑，且是预期之中的副作用而非妥协。全量回测（`make walk-forward STRATEGY=fx_correlation`、`python3 -m strategies.fx_correlation.backtest.run`）耗时降到 ~3-4 分钟，可接受。
 - 关联: `strategies/fx_correlation/models/base.py::compute_combo_metrics`, `strategies/fx_correlation/lib/correlation.py`, `strategies/fx_correlation/lib/cointegration.py::adf_pvalue`
+
+## D007 - Model C 用 ADF 统计量排序，p-value 只做筛选门槛
+
+- 日期: 2026-06-21
+- 状态: 已采纳
+- 背景: 用户要求 conviction 报告给出每条记录的具体驱动信号。实现时发现 Model C 原来的排序依据（`-adf_p`）在实盘数据上经常打平——statsmodels 的 ADF p-value 是查表近似值，当检验统计量远超表格范围时会直接饱和成 0.0（实测 21 个组合里有 9 个同时显示 p=0.000），导致这些组合之间的相对排序其实是按枚举顺序而非真实统计证据强弱决定的。
+- 决策: `lib/cointegration.py` 新增 `adf_test()` 同时返回检验统计量和 p-value；`model_c_cointegration.selection_score` 改为先用 p-value 做"是否够显著"的门槛过滤（不变），再用统计量（更负=更显著，且不会饱和）排序通过门槛的组合。
+- 备选方案:
+  - 保持只用 p-value：实现最简单，但排序在"强 cointegration 扎堆"的场景下会失真，与用户要求的"具体原因"诉求冲突（无法解释为什么 A 排在 B 前面，因为数字看起来一样），未采用。
+  - 改用更精细的 p-value 计算方式（如 MacKinnon 完整分布而非查表近似）：能解决饱和问题，但 statsmodels 的 adfuller 本身就是查表近似，没有现成的高精度替代，自己实现代价过高，未采用。
+- 影响: Model C 在回测中选中的组合可能与改动前不同（依赖统计量而非 p-value 排序），因此重新跑了 `backtest/run.py` 和 `reporting/model_backtests.py` 刷新 `reports/fx_correlation/` 下的指标和图表。`ComboMetrics` 新增 `adf_stat` 字段（默认 NaN，向后兼容）。
+- 关联: `strategies/fx_correlation/lib/cointegration.py::adf_test`, `strategies/fx_correlation/models/model_c_cointegration.py`, `strategies/fx_correlation/reporting/conviction.py::_model_detail`

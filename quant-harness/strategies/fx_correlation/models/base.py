@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from core.data.point_in_time import PointInTimeFrame
-from strategies.fx_correlation.lib.cointegration import adf_pvalue
+from strategies.fx_correlation.lib.cointegration import adf_test
 from strategies.fx_correlation.lib.correlation import multi_window_correlation
 from strategies.fx_correlation.lib.pairs import enumerate_combos
 from strategies.fx_correlation.lib.spread import compute_spread, hedge_ratio, latest_zscore
@@ -33,6 +33,7 @@ class ComboMetrics:
     corrs: dict[str, float]
     zscore: float
     adf_p: float
+    adf_stat: float = float("nan")
 
 
 SelectionScoreFn = Callable[[ComboMetrics, dict], float]
@@ -77,8 +78,10 @@ def compute_combo_metrics(
         return ComboMetrics(pair1, pair2, beta, corrs, float("nan"), float("nan"))
     spread = compute_spread(x, y, beta)
     z = latest_zscore(spread, zscore_lookback)
-    p_value = adf_pvalue(spread) if need_adf else float("nan")
-    return ComboMetrics(pair1, pair2, beta, corrs, z, p_value)
+    if need_adf:
+        adf_result = adf_test(spread)
+        return ComboMetrics(pair1, pair2, beta, corrs, z, adf_result.pvalue, adf_result.statistic)
+    return ComboMetrics(pair1, pair2, beta, corrs, z, float("nan"), float("nan"))
 
 
 def position_size(z: float, entry_z: float, exit_z: float) -> float:
@@ -217,6 +220,7 @@ def rank_table(
             "score": scores.get(combo, float("nan")),
             "zscore": metrics.zscore,
             "adf_p": metrics.adf_p,
+            "adf_stat": metrics.adf_stat,
         }
         row.update({f"corr_{name}": value for name, value in metrics.corrs.items()})
         rows.append(row)
