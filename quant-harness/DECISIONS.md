@@ -101,3 +101,15 @@
   - 改用更精细的 p-value 计算方式（如 MacKinnon 完整分布而非查表近似）：能解决饱和问题，但 statsmodels 的 adfuller 本身就是查表近似，没有现成的高精度替代，自己实现代价过高，未采用。
 - 影响: Model C 在回测中选中的组合可能与改动前不同（依赖统计量而非 p-value 排序），因此重新跑了 `backtest/run.py` 和 `reporting/model_backtests.py` 刷新 `reports/fx_correlation/` 下的指标和图表。`ComboMetrics` 新增 `adf_stat` 字段（默认 NaN，向后兼容）。
 - 关联: `strategies/fx_correlation/lib/cointegration.py::adf_test`, `strategies/fx_correlation/models/model_c_cointegration.py`, `strategies/fx_correlation/reporting/conviction.py::_model_detail`
+
+## D008 - fx_correlation 的 reports/ 例外提交到 git
+
+- 日期: 2026-06-21
+- 状态: 已采纳
+- 背景: 项目默认约定（`CLAUDE.md` Architecture 一节）是 `reports/<strategy_name>/` 不提交，因为是可随时重新生成的运行产物。用户希望能在 GitHub 上直接看到 fx_correlation 跑出来的结果（图表、conviction 报告），不想每次都要本地重新跑。
+- 决策: 在 `.gitignore` 里对 `reports/fx_correlation/` 单独开例外（`!reports/fx_correlation/` + `!reports/fx_correlation/**`），其余策略的 `reports/` 仍按默认约定忽略。今后每次为用户刷新 fx_correlation 的回测/conviction 报告后，连同 `reports/fx_correlation/` 下的产物一起提交。
+- 备选方案:
+  - 改成全局规则（所有策略的 reports/ 都提交）：用户只针对 fx_correlation 提出需求，没必要扩大到尚不存在的未来策略，且大部分策略的回测产物会比这个更大/更频繁变化，未采用。
+  - 设置真正的每日定时任务（cron）自动跑回测并推送：是更彻底的"自动"，但涉及无人值守运行 3-4 分钟回测并推送到 GitHub，影响范围更大，需要用户单独确认是否要这种程度的自动化，本次先只做"每次手动刷新时顺带提交"，未直接采用。
+- 影响: `conviction_<date>.{csv,md}` 这类按日期累积的文件会让 `reports/fx_correlation/` 随时间持续增长（用户已知晓并接受这个权衡）；其余策略不受影响。
+- 关联: `.gitignore`, `quant-harness/CLAUDE.md`（Architecture 一节的默认约定保持不变，仅 fx_correlation 例外）

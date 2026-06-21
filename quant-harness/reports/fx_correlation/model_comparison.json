@@ -1,0 +1,20 @@
+{
+  "model_a_strength":{
+    "sharpe":1.6663178878,
+    "max_drawdown":-0.0199212797,
+    "annualized_return":0.048340523,
+    "turnover":0.7871875588
+  },
+  "model_b_divergence":{
+    "sharpe":1.6005334792,
+    "max_drawdown":-0.0403503485,
+    "annualized_return":0.0564447647,
+    "turnover":0.6014476131
+  },
+  "model_c_cointegration":{
+    "sharpe":2.758001792,
+    "max_drawdown":-0.0253072894,
+    "annualized_return":0.1047392114,
+    "turnover":0.7550760249
+  }
+}
