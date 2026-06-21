@@ -84,6 +84,18 @@ conviction:
   medium_threshold: 40
   top_n_report: 10
 
+# --- Position management: timing + momentum overlay (reporting/position_management.py) ---
+# Combines the current z-score level (entry_z/exit_z, same idea as the models'
+# own thresholds but independently tunable here) with the z-score's own
+# momentum over `momentum_lookback` days into a 7-level action. See
+# lib/momentum.py for the (zscore_bucket, momentum_bucket) -> action table.
+position_management:
+  entry_z: 1.5
+  exit_z: 0.5
+  momentum_lookback: 5       # trading days back to measure z-score momentum over
+  momentum_threshold: 0.3    # |reversion_momentum| must exceed this to count as reverting/extending
+  top_n_report: 10
+
 # --- Walk-forward (in-sample/out-of-sample), trading days ----------------
 walk_forward:
   train_size: 252

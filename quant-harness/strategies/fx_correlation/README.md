@@ -25,6 +25,7 @@ reporting/
   model_backtests.py        each model's OWN (unblended) historical backtest, for comparing
                              which lens is actually earning its keep
   conviction.py              DAILY REFRESH ENTRYPOINT — current ranking + conviction score
+  position_management.py    timing + momentum overlay — turns ranking into a 7-level action
   plots.py                   renders charts from the CSVs the above already wrote to disk
 tests/                    unit tests for lib/ and models/base.py (pure math, fast)
 ```
@@ -45,6 +46,33 @@ Each row's printed report also includes a `reason`: which model ranked it best
 and the concrete number behind that (correlation level, divergence magnitude,
 or ADF statistic/p-value), plus which other models agree (rank in their own
 top quartile). `reason` is also a column in the saved CSV.
+
+## Position management (timing + momentum)
+
+```
+python3 -m strategies.fx_correlation.reporting.position_management
+```
+
+For every combo, classifies a 7-level action — 大力买入 / 买入 / 谨慎加仓 /
+持有 / 观望 / 减仓 / 获利了结 — from two signals as of today:
+- **z-score level** (`entry_z`/`exit_z` in `config.yaml`'s `position_management:`):
+  how stretched the spread is right now (extreme / moderate / neutral)
+- **z-score momentum** (`momentum_lookback`/`momentum_threshold`): is that
+  stretch already correcting (reverting) or still building (extending),
+  measured over the trailing N trading days
+
+See `lib/momentum.py`'s `ACTIONS` table for exactly which (z-bucket,
+momentum-bucket) combination maps to which action. Every printed row shows
+the literal parameters used and the raw z-score/momentum numbers behind the
+call — nothing is a black box. Writes `reports/fx_correlation/position_management_<date>.{csv,md}`.
+
+**Important nuance**: conviction (from `reporting/conviction.py`) and the
+action here can legitimately disagree. Conviction is built from divergence/
+strength signals that can lag — by the time a combo shows up as high-
+conviction, the spread may have *already* reverted, in which case this report
+correctly says 获利了结 (take profit), not 买入. High conviction means "this
+relationship mattered recently," not "buy now" — that's exactly the gap this
+overlay is for.
 
 ## Validating the strategy
 

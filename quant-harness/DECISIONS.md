@@ -113,3 +113,26 @@
   - 设置真正的每日定时任务（cron）自动跑回测并推送：是更彻底的"自动"，但涉及无人值守运行 3-4 分钟回测并推送到 GitHub，影响范围更大，需要用户单独确认是否要这种程度的自动化，本次先只做"每次手动刷新时顺带提交"，未直接采用。
 - 影响: `conviction_<date>.{csv,md}` 这类按日期累积的文件会让 `reports/fx_correlation/` 随时间持续增长（用户已知晓并接受这个权衡）；其余策略不受影响。
 - 关联: `.gitignore`, `quant-harness/CLAUDE.md`（Architecture 一节的默认约定保持不变，仅 fx_correlation 例外）
+
+## D009 - 仓位管理用"z-score 水平 × z-score 动量"两个信号合成 7 档动作
+
+- 日期: 2026-06-21
+- 状态: 已采纳
+- 背景: 用户要求对正在交易的货币对组合做择时，结合择时信号和动量水平，给出大力买入/买入/谨慎加仓/持有/观望/减仓/获利了结七档动作，并要求结果里给出依据的信号水平和参数。
+- 决策: 用现有的 z-score（已经是模型用来交易的"价差有多极端"信号）作为择时信号本身（分三档：极端/中等/中性，门槛 entry_z/exit_z），再算这个 z-score 在过去 `momentum_lookback` 个交易日里的变化方向作为"动量"（是在往均值收敛还是继续背离，门槛 momentum_threshold），3×3=9 种组合映射到 7 档动作（`lib/momentum.py::ACTIONS`）。两组阈值单独放在 `config.yaml` 的 `position_management:` 下，与三个模型自己的 entry_z/exit_z 解耦（可独立调整）。
+- 备选方案:
+  - 用单个货币对自身的价格动量（趋势跟踪指标，如均线交叉）做择时，与相关性信号无关：这是另一套独立体系，会让"为什么这个动作"难以用同一套已有指标解释，且需要新引入趋势跟踪逻辑，未采用。
+  - 给 9 个格子各自独立定义动作（不复用标签）：会变成 9 档而不是用户要求的 7 档，且部分格子（如"中等且背离"和"中性且无动量"）背后的操作建议其实是一样的（都是"没有边际优势，先别动"），强行区分没有意义，未采用。
+- 影响: 这一层完全基于已有的 `compute_combo_metrics`/`ComboMetrics` 复用（用同一个 beta，多算一次更早日期的 z-score），没有改动 `core/` 或现有模型逻辑。Conviction 排名和这里的动作可能合理地不一致——conviction 基于背离/强度信号，可能存在滞后，等动作层观察到时价差已经回归，会显示"获利了结"而不是"买入"，这是预期行为不是 bug，已在 README 里写明。
+- 关联: `strategies/fx_correlation/lib/momentum.py`, `strategies/fx_correlation/reporting/position_management.py`
+
+## D010 - fx_correlation 增加每日定时云端自动跑+推送
+
+- 日期: 2026-06-21
+- 状态: 已采纳
+- 背景: D008 当时的备选方案里提到过"真正的每日定时任务"但未采用，只做了"手动刷新时顺带提交"。用户随后明确要求要真正的每天自动跑（无需手动触发）。
+- 决策: 用 claude.ai 的云端 routine（`RemoteTrigger`，cron `7 6 * * *`，即每天 UTC 06:07）跑：conviction 报告 → 混合回测 → 三模型对比 → 出图 → 提交+推送到 `StacieSSSSS/study`。云端任务用的是全新 checkout（不共享这个 Codespace 的已装依赖/数据缓存），失败时直接停止并报告，不会硬推残缺结果或自己改策略代码。
+- 备选方案:
+  - 在本地 Codespace 里用 `CronCreate`/本地 cron 定时跑：本地任务只在 REPL 空闲时触发、且 Codespace 不保证一直开着，不适合"每天必须跑"的需求，未采用。
+- 影响: 之后如果改了 `reporting/position_management.py` 等新模块，需要记得同步更新云端 routine 的运行步骤（routine 的 prompt 是写死的文本，不会自动感知代码变化）。routine 管理入口：https://claude.ai/code/routines/trig_01SgYsm7Xz34XYhaeK3BSPQj。
+- 关联: D008
