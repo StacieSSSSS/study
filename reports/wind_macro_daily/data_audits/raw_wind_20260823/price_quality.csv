@@ -1,0 +1,5 @@
+instrument,source_name,status,zero_as_missing,first_observation,last_observation,raw_nonzero_observations,business_missing_after_limited_fill,common_backtest_end
+USDCNY,美元兑人民币,usable,773,2020-01-02,2026-08-14,1655,0,2026-08-14
+USDJPY,美元兑日元,usable,927,2020-01-06,2026-08-20,1213,46,2026-08-14
+AUDUSD,澳元兑美元,usable,695,2020-01-01,2026-08-21,1733,0,2026-08-14
+EURUSD,欧元兑美元,usable,695,2020-01-01,2026-08-21,1733,0,2026-08-14

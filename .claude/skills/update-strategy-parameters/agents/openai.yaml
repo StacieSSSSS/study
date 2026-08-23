@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Strategy Parameters"
+  short_description: "Safely edit, validate, and snapshot strategy parameters"
+  default_prompt: "Use $update-strategy-parameters to change wind_macro_daily parameters and preserve an auditable snapshot."

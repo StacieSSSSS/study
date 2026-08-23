@@ -1,0 +1,6 @@
+signal_variant,windows,average_oos_sharpe,worst_window_sharpe,positive_sharpe_fraction,average_oos_annualized_return,average_oos_max_drawdown,worst_oos_max_drawdown,average_oos_turnover,active_position_days,status
+momentum,3,-0.1521647593,-0.6183647965,0.3333333333,-0.01170684879,-0.09128129242,-0.1290223721,0.331207607,756,evaluated
+carry_signal,3,0,0,0,0,0,0,0,0,unavailable_input_or_no_signal
+mean_reversion,3,-0.07230621865,-0.3519276162,0.3333333333,-0.007478398554,-0.06550152451,-0.08263418676,0.3087662425,756,evaluated
+macro_signal,3,0.3733927273,-0.7158211895,0.6666666667,0.01706297892,-0.10395154,-0.1483833582,0.1570889301,756,evaluated
+composite_signal,3,-0.1915140107,-0.9210149914,0.6666666667,-0.01667157075,-0.1122635199,-0.1620032552,0.2465083713,756,evaluated
