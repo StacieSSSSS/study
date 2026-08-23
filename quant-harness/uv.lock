@@ -2760,6 +2760,9 @@ fx-correlation = [
 vectorbt = [
     { name = "vectorbt" },
 ]
+wind-macro-daily = [
+    { name = "matplotlib" },
+]
 zipline = [
     { name = "zipline-reloaded" },
 ]
@@ -2768,6 +2771,7 @@ zipline = [
 requires-dist = [
     { name = "backtrader", marker = "extra == 'backtrader'" },
     { name = "matplotlib", marker = "extra == 'fx-correlation'", specifier = ">=3.8" },
+    { name = "matplotlib", marker = "extra == 'wind-macro-daily'", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "pandas", specifier = ">=2.0" },

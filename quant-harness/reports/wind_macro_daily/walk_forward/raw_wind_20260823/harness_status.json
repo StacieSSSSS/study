@@ -1,0 +1,64 @@
+{
+  "strategy": "wind_macro_daily",
+  "run_id": "raw_wind_20260823",
+  "validation_unit": "instrument_x_factor",
+  "configured_instruments": [
+    "UST_2Y",
+    "UST_5Y",
+    "UST_10Y",
+    "UST_30Y",
+    "US_IRS_5Y",
+    "CN_IRS_5Y",
+    "USDCNY",
+    "USDJPY",
+    "AUDUSD",
+    "EURUSD"
+  ],
+  "active_instruments": [
+    "UST_2Y",
+    "UST_5Y",
+    "UST_10Y",
+    "UST_30Y",
+    "USDCNY",
+    "USDJPY",
+    "AUDUSD",
+    "EURUSD"
+  ],
+  "effective_pairs": [
+    {
+      "instrument": "AUDUSD",
+      "signal_variant": "mean_reversion"
+    }
+  ],
+  "unavailable_instruments": [
+    "US_IRS_5Y",
+    "CN_IRS_5Y"
+  ],
+  "open_improvements": [
+    "I004",
+    "I005",
+    "I006",
+    "I007"
+  ],
+  "artifacts": {
+    "windows": "reports/wind_macro_daily/walk_forward/raw_wind_20260823/windows_by_instrument_factor.csv",
+    "factor_effectiveness": "reports/wind_macro_daily/walk_forward/raw_wind_20260823/factor_effectiveness.csv",
+    "oos_daily_returns": "reports/wind_macro_daily/walk_forward/raw_wind_20260823/oos_daily_returns_by_instrument_factor.csv.gz",
+    "coverage": "reports/wind_macro_daily/walk_forward/raw_wind_20260823/instrument_data_coverage.csv",
+    "parameters": "reports/wind_macro_daily/parameters/raw_wind_20260823_instrument_factor_parameters.csv",
+    "visualizations": [
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/UST_2Y_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/UST_5Y_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/UST_10Y_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/UST_30Y_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/US_IRS_5Y_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/CN_IRS_5Y_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/USDCNY_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/USDJPY_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/AUDUSD_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/EURUSD_strategy_performance.png",
+      "reports/wind_macro_daily/visualizations/raw_wind_20260823/factor_effectiveness_heatmap.png"
+    ]
+  },
+  "lookahead_status": "release-timing guarded; historical revised-vintage leakage unresolved"
+}

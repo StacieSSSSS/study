@@ -1,6 +1,0 @@
-signal_variant,fast_window,medium_window,zscore_window,signal_clip,volatility_window,target_volatility,max_instrument_leverage,max_portfolio_gross,train_size,test_size,step,parameter_selection
-momentum,20,60,252,3,60,0.1,2,1.5,756,252,252,fixed_before_oos
-carry_signal,20,60,252,3,60,0.1,2,1.5,756,252,252,fixed_before_oos
-mean_reversion,20,60,252,3,60,0.1,2,1.5,756,252,252,fixed_before_oos
-macro_signal,20,60,252,3,60,0.1,2,1.5,756,252,252,fixed_before_oos
-composite_signal,20,60,252,3,60,0.1,2,1.5,756,252,252,fixed_before_oos

@@ -20,7 +20,8 @@ python -m strategies.wind_macro_daily.validation.run \
 
 4. Run bias scanning and the performance gate. Prefer `make bias-check STRATEGY=<name>` and `make perf-gate STRATEGY=<name>`. If `make` is unavailable, run `python -m core.validation.bias_check strategies/<name>` and `python -m core.reporting.gate --strategy=<name>`.
 5. Run `python .claude/skills/evaluate-strategy-performance/scripts/summarize_results.py --strategy <name> --run-id <id>` to create a compact evidence summary.
-6. Judge robustness from OOS windows, not the full-sample curve: report average and worst-window Sharpe, positive-window fraction, worst drawdown, turnover, active days, factor availability, and gate outcome.
-7. Separate three conclusions: code/data validation, statistical OOS evidence, and production readiness. A failed gate is a research finding, not a code bug; never alter the gate to force a pass.
+6. Judge robustness from OOS windows, not the full-sample curve. The primary unit is `instrument × factor`; never substitute a portfolio Sharpe or an average of standalone Sharpes. Report average and worst-window Sharpe, positive-window fraction, worst drawdown, turnover, active days, factor availability, and gate outcome.
+7. Read `factor_effectiveness.csv`, `instrument_data_coverage.csv`, `harness_status.json`, and the charts in `reports/<strategy>/visualizations/<run_id>/`. Treat `effective=true` as a mechanical threshold result, not economic proof.
+8. Separate three conclusions: code/data validation, statistical OOS evidence, and production readiness. A failed gate is a research finding, not a code bug; never alter the gate to force a pass.
 
 For manual macro data, always repeat that release timing is guarded but revision leakage remains until historical vintages are supplied. Do not present research-only macro performance as live-ready.

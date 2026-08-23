@@ -196,13 +196,24 @@ def _read_price_panel(
     for instrument, values in selected.items():
         close = values.reindex(dates).ffill(limit=max_fill)
         panel[f"{instrument}__close"] = close
-        panel[f"{instrument}__return"] = np.log(close / close.shift(1))
+        spec = cast(dict[str, Any], config["instruments"][instrument])
+        return_model = str(spec.get("return_model", "log_price"))
+        if return_model == "log_price":
+            instrument_return = np.log(close / close.shift(1))
+        elif return_model == "yield_duration":
+            # Workbook yields are percentage points. Positive strategy weight
+            # means long duration / receive fixed, so falling yields earn PnL.
+            instrument_return = -float(spec["duration"]) * close.diff() / 100.0
+        else:
+            raise ValueError(f"unsupported return_model for {instrument}: {return_model}")
+        panel[f"{instrument}__return"] = instrument_return
         panel[f"{instrument}__carry"] = np.nan
         after_fill = int(close.isna().sum())
         for row in quality_rows:
             if row.get("instrument") == instrument:
                 row["business_missing_after_limited_fill"] = after_fill
                 row["common_backtest_end"] = common_end
+                row["return_model"] = return_model
                 break
     return panel, pd.DataFrame(quality_rows), active
 

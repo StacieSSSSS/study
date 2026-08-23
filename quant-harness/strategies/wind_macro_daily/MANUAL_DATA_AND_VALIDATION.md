@@ -41,7 +41,7 @@ python -m strategies.wind_macro_daily.data.profile_workbook \
 - GDP 使用 4 个季度变化。
 - 月环比通胀与工业环比使用水平值。
 
-USDCNY 使用中美增长、通胀、就业和流动性差的方向性篮子；USDJPY 使用美国端篮子；AUDUSD 加入中国需求并对美国端取反；EURUSD 因工作簿没有欧元区数据，只能使用美国端的反向代理。具体权重在 `config.yaml -> data.manual_excel.macro_baskets`，属于待 walk-forward 验证的研究参数，不是已证明的经济真值。
+美国国债各期限使用美国增长、就业和通胀篮子，宏观走强或通胀上升对应减少久期；USDCNY 使用中美增长、通胀、就业和流动性差的方向性篮子；USDJPY 使用美国端篮子；AUDUSD 加入中国需求并对美国端取反；EURUSD 因工作簿没有欧元区数据，只能使用美国端的反向代理。具体权重在 `config.yaml -> data.manual_excel.macro_baskets`，属于待 walk-forward 验证的研究参数，不是已证明的经济真值。
 
 价格因子包括 20/60 日动量和 60 日均值回归；宏观因子使用上面的发布时点篮子；综合因子按资产类别权重合成，并在某个输入缺失时只在可用因子间重新归一化。当前工作簿没有可审计的 FX carry 输入，所以 carry 单因子会明确显示为不可用。
 
@@ -56,18 +56,20 @@ python -m strategies.wind_macro_daily.validation.run \
   --run-id raw_wind_YYYYMMDD
 ```
 
-验证器对 `momentum`、`carry_signal`、`mean_reversion`、`macro_signal`、`composite_signal` 分别运行相同的滚动窗口。当前为 756 个交易日训练窗口、252 个交易日测试窗口、每次前移 252 日。参数在进入每个 OOS 窗口前固定，不使用测试窗口调参。
+验证器对每个交易标的的 `momentum`、`carry_signal`、`mean_reversion`、`macro_signal`、`composite_signal` 分别运行相同的滚动窗口，不再用跨资产组合 Sharpe 代替单标的判断。当前为 756 个交易日训练窗口、252 个交易日测试窗口、每次前移 252 日。参数在进入每个 OOS 窗口前固定，不使用测试窗口调参。
 
 参数与样本外结果严格分开：
 
 - `reports/wind_macro_daily/parameters/<run_id>_walk_forward.yaml`：完整配置快照。
-- `reports/wind_macro_daily/parameters/<run_id>_factor_parameters.csv`：每个因子的核心参数表。
-- `reports/wind_macro_daily/walk_forward/<run_id>/windows.csv`：逐因子、逐窗口 OOS 指标。
-- `reports/wind_macro_daily/walk_forward/<run_id>/summary.csv`：跨窗口汇总。
-- `reports/wind_macro_daily/walk_forward/<run_id>/oos_daily_returns.csv.gz`：逐日 OOS 收益和 gross exposure。
+- `reports/wind_macro_daily/parameters/<run_id>_instrument_factor_parameters.csv`：每个标的和因子的核心参数表。
+- `reports/wind_macro_daily/walk_forward/<run_id>/windows_by_instrument_factor.csv`：逐标的、逐因子、逐窗口 OOS 指标。
+- `reports/wind_macro_daily/walk_forward/<run_id>/factor_effectiveness.csv`：跨窗口汇总、有效标签及失败原因。
+- `reports/wind_macro_daily/walk_forward/<run_id>/oos_daily_returns_by_instrument_factor.csv.gz`：逐标的逐因子的每日 OOS 收益和仓位。
+- `reports/wind_macro_daily/walk_forward/<run_id>/harness_status.json`：供 harness 消费的有效组合、数据缺口、开放改进项和产物路径。
+- `reports/wind_macro_daily/visualizations/<run_id>/`：每个标的的净值/回撤图和有效性热图。
 
 任何参数变更都必须生成新的 `run_id`，不能覆盖先前结果。不得根据同一组 OOS 结果反复调整参数后仍称其为样本外；发生这种情况必须推进验证区间或保留最终 untouched holdout。
 
 ## 5. 当前还需补充的数据
 
-真实六资产版本仍缺：5Y SOFR OIS/IRS par rate、5Y FR007 IRS par rate、USD/CNY/JPY/AUD/EUR 的匹配期限 OIS 或 FX forward points，以及美国以外经济体的宏观数据。完整清单由 profile 命令写入 `required_data_gaps.csv`。
+当前美国国债 2Y/5Y/10Y/30Y 可用久期近似分别回测。仍缺：5Y SOFR OIS/IRS par rate、5Y FR007 IRS par rate、USD/CNY/JPY/AUD/EUR 的匹配期限 OIS 或 FX forward points，以及美国以外经济体的宏观数据。完整清单由 profile 命令写入 `required_data_gaps.csv`，持续改进规则保存在 `IMPROVEMENTS.yaml`。

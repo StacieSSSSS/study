@@ -13,6 +13,7 @@ reports/*/
 !reports/wind_macro_daily/
 !reports/wind_macro_daily/**
 .venv/
+.uv-cache-local/
 *.egg-info/
 strategies/*/data/cache/
 strategies/*/data/raw/

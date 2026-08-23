@@ -118,3 +118,4 @@ data/loader.py → signals/signal.py（经 PointInTimeFrame）→ backtest/run.p
 | 2026-06-20 | 新增策略 | `strategies/fx_correlation`：多模型外汇相关性交易框架（强度/稳定性、背离、cointegration 三模型 + conviction 排名 + 每日刷新）。首次出现"策略内部多模型共享单一交易机制"模式，详见 DECISIONS.md D004-D006。`signals/signal.py` 的返回类型从 `_template` 的单一 float 改为 `pd.Series`（多资产权重向量），属有意为之的偏离，已在该策略 README 注明。 |
 | 2026-06-21 | 扩展 fx_correlation | 加 conviction 报告的逐条理由（`reason` 列，D007 顺带修了 Model C 用 ADF 统计量而非会饱和的 p-value 排序）；`reports/fx_correlation/` 例外提交到 git 并接入每日云端自动跑+推送（D008/D010）；新增仓位管理层（`lib/momentum.py` + `reporting/position_management.py`），把 z-score 水平和动量合成 7 档操作建议（D009）。 |
 | 2026-08-23 | 新增策略 | `strategies/wind_macro_daily`：接入 Wind 指标目录、六资产日间多因子信号、成本后回测、walk-forward、分层样例产物与审计 manifest（D011）。 |
+| 2026-08-23 | 扩展验证 | `wind_macro_daily` 改为逐标的 × 逐因子 walk-forward；加入 UST 2Y/5Y/10Y/30Y 久期收益、有效因子标签、数据缺口占位图、策略表现图及机器可读 harness 状态（D014）。 |

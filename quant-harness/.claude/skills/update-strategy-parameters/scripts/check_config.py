@@ -46,6 +46,19 @@ def main() -> int:
         errors,
     )
     _positive(walk_forward, ["train_size", "test_size", "step"], "walk_forward", errors)
+    effectiveness = cast(dict[str, Any], walk_forward["effectiveness"])
+    _positive(
+        effectiveness,
+        ["minimum_windows", "minimum_active_position_days"],
+        "walk_forward.effectiveness",
+        errors,
+    )
+    positive_fraction = float(effectiveness["minimum_positive_sharpe_fraction"])
+    if not 0.0 <= positive_fraction <= 1.0:
+        errors.append("walk_forward.effectiveness.minimum_positive_sharpe_fraction must be in [0, 1]")
+    drawdown_floor = float(effectiveness["maximum_worst_oos_drawdown"])
+    if not -1.0 <= drawdown_floor <= 0.0:
+        errors.append("walk_forward.effectiveness.maximum_worst_oos_drawdown must be in [-1, 0]")
     for asset_class, weights in factors["weights"].items():
         total = sum(float(value) for value in weights.values())
         if any(float(value) < 0 for value in weights.values()):

@@ -167,7 +167,19 @@
 - 日期: 2026-08-23
 - 状态: 已采纳
 - 背景: Windows 默认代码页为 GBK；当策略 `config.yaml` 含中文 Wind 指标名时，`core.reporting.gate` 和 `core.validation.walk_forward` 的默认编码读取会抛 `UnicodeDecodeError`。
-- 决策: 共享 gate 与 walk-forward 配置读取显式声明 `encoding="utf-8"`，与仓库其余 YAML/Markdown 文件编码一致。
+- 决策: 共享 gate、walk-forward 配置与 bias scanner 源码读取显式声明 `encoding="utf-8"`，与仓库其余 YAML/Markdown/Python 文件编码一致。
 - 备选方案: 把中文指标名转义或移出配置；会降低手工映射可读性且没有解决共享代码的跨平台编码缺陷，未采用。
 - 影响: 不改变接口或计算逻辑；所有策略可安全使用 UTF-8 配置。
-- 关联: D012、`core/reporting/gate.py`、`core/validation/walk_forward.py`
+- 关联: D012、`core/reporting/gate.py`、`core/validation/walk_forward.py`、`core/validation/bias_check.py`
+
+## D014 - wind_macro_daily 以逐标的逐因子 OOS 验证为主，并将美债与 IRS 严格分离
+
+- 日期: 2026-08-23
+- 状态: 已采纳
+- 背景: 跨资产组合 Sharpe 会混合仓位缩放、相关性和交易成本，不能回答某个技术指标是否适用于某个具体交易标的；同时手工工作簿已有美国国债收益率但仍缺少精确的美中 IRS 报价。
+- 决策: 主验证键改为 `instrument × factor × walk-forward window`，有效性只依据该标的自身 OOS 窗口判定；组合结果保留为可选附加输出。美国国债 2Y/5Y/10Y/30Y 以独立 UST 标的接入，正仓位定义为多久期，收益使用 `-duration × Δyield / 100` 一阶近似。美债不得映射为 SOFR IRS；缺少的 US/CN IRS 生成明确的 data-unavailable 状态和图。
+- 备选方案:
+  - 继续用组合 Sharpe 并附逐标的贡献：贡献仍受组合 gross cap 和其他资产影响，不能作为独立因子检验，未采用。
+  - 用 5Y Treasury 代理 5Y SOFR IRS：会混入 Treasury-swap spread 风险并错误标注交易品种，未采用。
+- 影响: 新增逐标的因子参数表、窗口结果、OOS 日收益、有效性标签、数据覆盖、harness 状态和可视化目录；原组合绩效门槛继续保留但不再决定某个标的/因子是否有效。持续改进项集中记录于 `strategies/wind_macro_daily/IMPROVEMENTS.yaml`。
+- 关联: D011、D012、D013、`strategies/wind_macro_daily/validation/run.py`

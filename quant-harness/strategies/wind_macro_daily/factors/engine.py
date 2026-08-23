@@ -36,7 +36,8 @@ def factor_snapshot(
     for instrument in config["universe"]:
         spec = config["instruments"][instrument]
         close = cast(pd.Series, history[f"{instrument}__close"]).astype(float)
-        if spec["asset_class"] == "FX":
+        is_rate = spec["asset_class"] in {"IRS", "UST"}
+        if not is_rate:
             transformed = pd.Series(np.log(close.to_numpy()), index=close.index)
             momentum_raw = 0.5 * transformed.diff(fast) + 0.5 * transformed.diff(medium)
         else:
@@ -48,7 +49,10 @@ def factor_snapshot(
             max(60, z_window // 3),
             clip,
         )
-        mean_reversion = -_last_z(close, medium, max(20, medium // 3), clip)
+        level_z = _last_z(close, medium, max(20, medium // 3), clip)
+        # Positive rate position means long duration / receive fixed. A yield
+        # above its trailing mean therefore maps to a positive reversion trade.
+        mean_reversion = level_z if is_rate else -level_z
         macro = _last_z(
             cast(pd.Series, history[f"{instrument}__macro"]).astype(float),
             z_window,

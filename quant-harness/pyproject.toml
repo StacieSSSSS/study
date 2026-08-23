@@ -26,11 +26,12 @@ fx_correlation = [
 ]
 # strategies/wind_macro_daily uses base dependencies; WindPy is installed by
 # the licensed Wind terminal and is intentionally not a PyPI dependency.
-wind_macro_daily = []
+wind_macro_daily = ["matplotlib>=3.8"]
 
 [tool.ruff]
 line-length = 110
 target-version = "py311"
+exclude = [".venv", ".uv-cache-local"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

@@ -71,7 +71,7 @@ def check_source(source: str, file: Path) -> list[Finding]:
 
 
 def check_file(path: Path) -> list[Finding]:
-    return check_source(path.read_text(), path)
+    return check_source(path.read_text(encoding="utf-8"), path)
 
 
 def check_path(path: Path) -> list[Finding]:

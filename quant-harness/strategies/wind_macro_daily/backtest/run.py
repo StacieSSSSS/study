@@ -21,6 +21,20 @@ from strategies.wind_macro_daily.factors.engine import factor_snapshot
 from strategies.wind_macro_daily.signals.signal import generate_signal
 
 STRATEGY_NAME = "wind_macro_daily"
+SIGNAL_VARIANTS = (
+    "momentum",
+    "carry_signal",
+    "mean_reversion",
+    "macro_signal",
+    "composite_signal",
+)
+INDICATOR_LABELS = {
+    "momentum": "20/60日价格趋势（利率为反向收益率变化）",
+    "carry_signal": "持有收益/曲线滚降",
+    "mean_reversion": "60日价格或收益率水平Z分数反转",
+    "macro_signal": "发布时点对齐的宏观篮子Z分数",
+    "composite_signal": "可用因子动态再加权综合信号",
+}
 
 
 def load_data() -> pd.DataFrame:
@@ -38,6 +52,14 @@ def _active_config(config: dict[str, Any], data: pd.DataFrame) -> dict[str, Any]
     if not active:
         raise ValueError("no configured instruments have both close and return columns")
     run_config["universe"] = active
+    return run_config
+
+
+def _single_instrument_config(config: dict[str, Any], instrument: str) -> dict[str, Any]:
+    if instrument not in config["universe"]:
+        raise ValueError(f"instrument is not active: {instrument}")
+    run_config = copy.deepcopy(config)
+    run_config["universe"] = [instrument]
     return run_config
 
 
@@ -111,6 +133,120 @@ def evaluate_window(train_df: pd.DataFrame, test_df: pd.DataFrame) -> dict[str, 
     positions, instrument_pnl, _ = _run_over_dates(pit, history, dates, config)
     portfolio = instrument_pnl.sum(axis=1, min_count=1).fillna(0.0)
     return summarize(portfolio, positions)
+
+
+def run_independent_grid(
+    pit: PointInTimeFrame,
+    history: pd.DataFrame,
+    run_dates: pd.DatetimeIndex,
+    evaluation_dates: pd.DatetimeIndex,
+    config: dict[str, Any],
+    variants: list[str] | tuple[str, ...] = SIGNAL_VARIANTS,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Backtest every instrument/factor independently, never as a portfolio sleeve."""
+    _ = pit, run_dates  # API symmetry; vectorized calculations remain strictly backward-looking.
+    metric_rows: list[dict[str, Any]] = []
+    daily_rows: list[pd.DataFrame] = []
+    factor_config = config["factors"]
+    risk = config["risk"]
+    fast = int(factor_config["fast_window"])
+    medium = int(factor_config["medium_window"])
+    z_window = int(factor_config["zscore_window"])
+    clip = float(factor_config["signal_clip"])
+
+    def rolling_z(series: pd.Series, window: int, minimum: int) -> pd.Series:
+        rolling = series.rolling(window, min_periods=minimum)
+        standard_deviation = rolling.std(ddof=1).replace(0.0, np.nan)
+        return cast(pd.Series, ((series - rolling.mean()) / standard_deviation).clip(-clip, clip))
+
+    for instrument in config["universe"]:
+        spec = config["instruments"][instrument]
+        close = cast(pd.Series, history[f"{instrument}__close"]).astype(float)
+        instrument_return = cast(pd.Series, history[f"{instrument}__return"]).astype(float)
+        is_rate = spec["asset_class"] in {"IRS", "UST"}
+        transformed = close if is_rate else cast(pd.Series, np.log(close))
+        momentum_raw = 0.5 * transformed.diff(fast) + 0.5 * transformed.diff(medium)
+        if is_rate:
+            momentum_raw = -momentum_raw
+        momentum = rolling_z(momentum_raw, z_window, max(60, z_window // 3))
+        carry = rolling_z(
+            cast(pd.Series, history[f"{instrument}__carry"]).astype(float),
+            z_window,
+            max(60, z_window // 3),
+        )
+        level_z = rolling_z(close, medium, max(20, medium // 3))
+        mean_reversion = level_z if is_rate else -level_z
+        macro = rolling_z(
+            cast(pd.Series, history[f"{instrument}__macro"]).astype(float),
+            z_window,
+            max(60, z_window // 3),
+        )
+        components = pd.DataFrame(
+            {
+                "momentum": momentum,
+                "carry_signal": carry,
+                "mean_reversion": mean_reversion,
+                "macro_signal": macro,
+            },
+            index=history.index,
+        )
+        weights = pd.Series(
+            {
+                "momentum": factor_config["weights"][spec["asset_class"]]["momentum"],
+                "carry_signal": factor_config["weights"][spec["asset_class"]]["carry"],
+                "mean_reversion": factor_config["weights"][spec["asset_class"]]["mean_reversion"],
+                "macro_signal": factor_config["weights"][spec["asset_class"]]["macro"],
+            },
+            dtype=float,
+        )
+        available_weight = components.notna().mul(weights, axis=1).sum(axis=1)
+        composite_raw = components.mul(weights, axis=1).sum(axis=1, min_count=1).div(
+            available_weight.replace(0.0, np.nan)
+        )
+        components["composite_signal"] = np.tanh(composite_raw)
+        annualized_volatility = (
+            instrument_return.rolling(int(risk["volatility_window"]), min_periods=2).std(ddof=1)
+            * np.sqrt(int(risk["annualization"]))
+        )
+        volatility_scalar = (
+            float(risk["target_volatility"]) / annualized_volatility
+        ).clip(upper=float(risk["max_instrument_leverage"]))
+        cost_rate = float(spec["cost_bps"]) / 10_000.0
+        for variant in variants:
+            factor = cast(pd.Series, components[str(variant)]).astype(float)
+            signal = factor if variant == "composite_signal" else cast(pd.Series, np.tanh(factor))
+            position = (signal * volatility_scalar).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+            strategy_return = position.shift(1).fillna(0.0) * instrument_return.fillna(0.0)
+            strategy_return -= position.diff().abs().fillna(position.abs()) * cost_rate
+            evaluated_position = cast(pd.Series, position.loc[evaluation_dates])
+            evaluated_positions = evaluated_position.rename(instrument).to_frame()
+            evaluated_return = cast(pd.Series, strategy_return.loc[evaluation_dates]).fillna(0.0)
+            active_days = int(
+                np.count_nonzero(np.abs(evaluated_position.to_numpy(dtype=float)) > 0.0)
+            )
+            metric_rows.append(
+                {
+                    "instrument": instrument,
+                    "asset_class": config["instruments"][instrument]["asset_class"],
+                    "signal_variant": variant,
+                    "technical_indicator": INDICATOR_LABELS[str(variant)],
+                    "active_position_days": active_days,
+                    "status": "evaluated" if active_days else "unavailable_input_or_no_signal",
+                    **summarize(evaluated_return, evaluated_positions),
+                }
+            )
+            daily_rows.append(
+                pd.DataFrame(
+                    {
+                        "date": evaluation_dates,
+                        "instrument": instrument,
+                        "signal_variant": variant,
+                        "daily_return": evaluated_return.to_numpy(),
+                        "position": evaluated_position.to_numpy(),
+                    }
+                )
+            )
+    return pd.DataFrame(metric_rows), pd.concat(daily_rows, ignore_index=True)
 
 
 def _write_csv(frame: pd.DataFrame, path: Path, index: bool = True) -> None:
@@ -203,27 +339,33 @@ def main(argv: list[str] | None = None) -> None:
         raise RuntimeError("not enough data after the reserved training window")
     pit = PointInTimeFrame(data)
     dates = cast(pd.DatetimeIndex, test_df.index)
-    positions, instrument_pnl, factor_values = _run_over_dates(
+    start = max(train_size - 1, 0)
+    run_dates = cast(pd.DatetimeIndex, data.index[start:])
+    run_positions, run_instrument_pnl, factor_values = _run_over_dates(
         pit,
         data,
-        dates,
+        run_dates,
         config,
         signal_variant=args.signal_variant,
     )
+    positions = cast(pd.DataFrame, run_positions.loc[dates])
+    instrument_pnl = cast(pd.DataFrame, run_instrument_pnl.loc[dates])
     portfolio_returns = instrument_pnl.sum(axis=1, min_count=1).fillna(0.0)
     metrics = summarize(portfolio_returns, positions)
-    metrics_by_instrument = pd.DataFrame(
-        [
-            {
-                "instrument": instrument,
-                **summarize(
-                    cast(pd.Series, instrument_pnl[instrument]).fillna(0.0),
-                    cast(pd.DataFrame, positions[[instrument]]),
-                ),
-            }
-            for instrument in config["universe"]
-        ]
+    independent_metrics, independent_daily = run_independent_grid(
+        pit,
+        data,
+        run_dates,
+        dates,
+        config,
     )
+    metrics_by_instrument = cast(
+        pd.DataFrame,
+        independent_metrics.loc[
+            independent_metrics["signal_variant"].eq("composite_signal"),
+            ["instrument", "sharpe", "max_drawdown", "annualized_return", "turnover"],
+        ],
+    ).reset_index(drop=True)
     equity = (1.0 + portfolio_returns).cumprod().rename("equity").to_frame()
 
     data_path, factor_path, position_path, backtest_path = _artifact_paths(data_mode, run_id)
@@ -241,6 +383,16 @@ def main(argv: list[str] | None = None) -> None:
     _write_csv(instrument_pnl, backtest_path)
     _write_csv(equity, report_dir / "equity_curve.csv")
     _write_csv(metrics_by_instrument, report_dir / "metrics_by_instrument.csv", index=False)
+    _write_csv(
+        independent_metrics,
+        report_dir / "metrics_by_instrument_factor.csv",
+        index=False,
+    )
+    _write_csv(
+        independent_daily,
+        report_dir / "daily_returns_by_instrument_factor.csv.gz",
+        index=False,
+    )
     (report_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     parameter_path.write_text(CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -271,6 +423,8 @@ def main(argv: list[str] | None = None) -> None:
         report_dir / "equity_curve.csv",
         report_dir / "metrics.json",
         report_dir / "metrics_by_instrument.csv",
+        report_dir / "metrics_by_instrument_factor.csv",
+        report_dir / "daily_returns_by_instrument_factor.csv.gz",
         parameter_path,
     ]
     if manual_bundle is not None:

@@ -67,7 +67,7 @@ def _synthetic_data(config: dict[str, Any]) -> pd.DataFrame:
             macro = direction * usd + 0.35 * growth - 0.15 * inflation
         else:
             duration = float(spec["duration"])
-            country = 1.0 if instrument.startswith("US_") else -0.65
+            country = 1.0 if instrument.startswith(("US_", "UST_")) else -0.65
             yield_change = np.zeros(count)
             shock = local_rng.normal(0.0, 0.00045, count)
             for index in range(1, count):
