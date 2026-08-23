@@ -1,0 +1,76 @@
+{
+  "strategy": "wind_macro_daily",
+  "run_id": "raw_wind_20260823",
+  "data_mode": "manual_excel",
+  "signal_variant": "composite_signal",
+  "active_universe": [
+    "UST_2Y",
+    "UST_5Y",
+    "UST_10Y",
+    "UST_30Y",
+    "USDCNY",
+    "USDJPY",
+    "AUDUSD",
+    "EURUSD"
+  ],
+  "workbook": {
+    "filename": "Raw_wind.xlsx",
+    "sha256": "c1d94bdfb140b3c9c7c7c5937eaeb931ef5a87d68510315773835fea9060e627",
+    "strict_point_in_time_eligible": false,
+    "revision_warning": "release dates guarded; historical revised-vintage leakage remains"
+  },
+  "artifacts": {
+    "strategies/wind_macro_daily/data/manual/raw_wind_20260823/market_data.csv.gz": {
+      "rows": 1726,
+      "sha256": "a58599fd66ec30e49b0abb9aef25128fc5353d6ac1e72d84259e4f3bb316f7e6"
+    },
+    "strategies/wind_macro_daily/factors/output/manual/raw_wind_20260823/factor_values.csv.gz": {
+      "rows": 7761,
+      "sha256": "fd097c10d3b0ba9675fc42eb5483c0bdb3f2756f59ea116df799b9caef763158"
+    },
+    "strategies/wind_macro_daily/strategy_output/manual/raw_wind_20260823/positions.csv.gz": {
+      "rows": 970,
+      "sha256": "7dcb3a6f226a3f9cb6ccb260dd4a44de762e6b0caf71fb33bbe3474a81807779"
+    },
+    "strategies/wind_macro_daily/backtest/output/manual/raw_wind_20260823/daily_pnl.csv.gz": {
+      "rows": 970,
+      "sha256": "7e08fa18a0b7d1df31b2cb629c83861dc5c48533cde77641bdca962e2479ee16"
+    },
+    "reports/wind_macro_daily/backtests/raw_wind_20260823/equity_curve.csv": {
+      "rows": 970,
+      "sha256": "acb1a5ba98d9a37e7979b8b80cc51eb3579fbde79a40de10cb98127934b6da57"
+    },
+    "reports/wind_macro_daily/backtests/raw_wind_20260823/metrics.json": {
+      "rows": 6,
+      "sha256": "bb215903471a0205e27e3f9a1ebe5aaf809ec8d349e51bc6cb0e855c3d7d14b5"
+    },
+    "reports/wind_macro_daily/backtests/raw_wind_20260823/metrics_by_instrument.csv": {
+      "rows": 9,
+      "sha256": "342ac2da23bba7b64ca10de284e22089f9a97432ae3964612adc23b4f0fbd0ac"
+    },
+    "reports/wind_macro_daily/backtests/raw_wind_20260823/metrics_by_instrument_factor.csv": {
+      "rows": 41,
+      "sha256": "35ea91ea0974d7ab3bf334e8d1907a22c0094ced789401595a006d012d79d981"
+    },
+    "reports/wind_macro_daily/backtests/raw_wind_20260823/daily_returns_by_instrument_factor.csv.gz": {
+      "rows": 38761,
+      "sha256": "f1c5010c88886a116d3aa1706e3d3f5f05faf5bc87cd98797745d667199cfa7a"
+    },
+    "reports/wind_macro_daily/parameters/raw_wind_20260823.yaml": {
+      "rows": 226,
+      "sha256": "359c799ea3833f5b15048d5c54020906dd5617da5c7dd66f1caf39c9760623df"
+    },
+    "strategies/wind_macro_daily/data/manual/raw_wind_20260823/macro_observations.csv.gz": {
+      "rows": 1994,
+      "sha256": "7bc0965f4dd54db05deabdffb2aa11eb167126715303bc663f1e4f9ea85c3e69"
+    },
+    "strategies/wind_macro_daily/data/manual/raw_wind_20260823/price_quality.csv": {
+      "rows": 9,
+      "sha256": "bccc78a860d076fde95fd3e5a5cf434280af0eaec350b663252c81f8c08d587d"
+    },
+    "reports/wind_macro_daily/backtests/raw_wind_20260823/macro_update_audit.csv": {
+      "rows": 29,
+      "sha256": "b33fe9c7d2901ba535204cd1a57a448af77190ae0182e44578b18a80b15a704f"
+    }
+  }
+}

@@ -1,0 +1,509 @@
+schema_version: 1
+as_of: "2026-08-23"
+workbook:
+  price_sheet: "Price_raw"
+  macro_sheet: "Macro"
+  header_row: 2
+  unit_row: 3
+  macro_update_row: 4
+  price_data_start_row: 4
+  macro_data_start_row: 5
+
+decision_clock:
+  timezone: "Asia/Hong_Kong"
+  decision_time: "16:30:00"
+  rule: >
+    A release at or before the Hong Kong decision cutoff is usable in that
+    session; a later, weekend, or date-only release is first usable on the
+    following Hong Kong business day.
+
+vintage_policy:
+  workbook_vintage: "current_revised_snapshot"
+  release_timing_guard: "conservative_rule_plus_latest_official_reconciliation"
+  strict_point_in_time_eligible: false
+  reason: >
+    Row 4 records only the latest update date for each column. It does not
+    contain the historical release timestamp or the value vintage that was
+    known on every prior date. The rules below block reference-date look-ahead,
+    but a real-time vintage source is still required to eliminate revision
+    leakage completely.
+  production_rule: >
+    Treat results as research-only until every macro observation has an exact
+    release timestamp and vintage_id from an archived release or vendor
+    point-in-time database.
+
+release_groups:
+  cn_prices:
+    agency: "国家统计局"
+    timezone: "Asia/Shanghai"
+    typical_time: "09:30:00"
+    conservative_rule: {kind: "next_month_day", day: 10, roll: "following_weekday"}
+    latest_official_release_ts: "2026-08-09T09:30:00+08:00"
+    official_url: "https://www.stats.gov.cn/sj/zxfbhjd/202608/t20260809_1965008.html"
+  cn_pmi:
+    agency: "国家统计局服务业调查中心"
+    timezone: "Asia/Shanghai"
+    typical_time: "09:30:00"
+    conservative_rule: {kind: "same_month_last_weekday"}
+    latest_official_release_ts: "2026-07-31T09:30:00+08:00"
+    official_url: "https://www.stats.gov.cn/zwfwck/sjfb/202607/t20260731_1964253.html"
+  cn_activity:
+    agency: "国家统计局"
+    timezone: "Asia/Shanghai"
+    typical_time: "15:00:00"
+    conservative_rule: {kind: "next_month_day", day: 18, roll: "following_weekday"}
+    latest_official_release_ts: "2026-08-17T15:00:00+08:00"
+    official_url: "https://www.stats.gov.cn/sj/zxfb/202608/t20260817_1965056.html"
+  cn_gdp:
+    agency: "国家统计局"
+    timezone: "Asia/Shanghai"
+    typical_time: "10:00:00"
+    conservative_rule: {kind: "quarter_next_month_day", day: 20, roll: "following_weekday"}
+    latest_official_release_ts: "2026-07-16T09:30:00+08:00"
+    official_url: "https://www.stats.gov.cn/sj/zxfb/202607/t20260716_1964142.html"
+  cn_money:
+    agency: "中国人民银行"
+    timezone: "Asia/Shanghai"
+    typical_time: "17:00:00"
+    time_certainty: "date_only_in_workbook"
+    conservative_rule: {kind: "next_month_day", day: 16, roll: "following_weekday"}
+    latest_official_release_date: "2026-08-14"
+    official_url: "https://www.pbc.gov.cn/diaochatongjisi/116219/116319/index.html"
+  cn_trade:
+    agency: "海关总署"
+    timezone: "Asia/Shanghai"
+    typical_time: "10:00:00"
+    time_certainty: "date_unverified"
+    conservative_rule: {kind: "next_month_day", day: 18, roll: "following_weekday"}
+    latest_official_release_date: "2026-08-07"
+    official_url: "https://english.customs.gov.cn/statics/report/monthly.html"
+  us_gdp:
+    agency: "U.S. Bureau of Economic Analysis"
+    timezone: "America/New_York"
+    typical_time: "08:30:00"
+    conservative_rule: {kind: "quarter_next_month_last_weekday"}
+    latest_official_release_ts: "2026-07-30T08:30:00-04:00"
+    official_url: "https://www.bea.gov/news/2026/gdp-advance-estimate-2nd-quarter-2026"
+  us_cpi:
+    agency: "U.S. Bureau of Labor Statistics"
+    timezone: "America/New_York"
+    typical_time: "08:30:00"
+    conservative_rule: {kind: "next_month_day", day: 16, roll: "following_weekday"}
+    latest_official_release_ts: "2026-08-12T08:30:00-04:00"
+    official_url: "https://www.bls.gov/news.release/archives/cpi_08122026.htm"
+  us_pce:
+    agency: "U.S. Bureau of Economic Analysis"
+    timezone: "America/New_York"
+    typical_time: "08:30:00"
+    conservative_rule: {kind: "next_month_last_weekday"}
+    latest_official_release_ts: "2026-07-30T08:30:00-04:00"
+    official_url: "https://www.bea.gov/news/schedule"
+  us_ppi:
+    agency: "U.S. Bureau of Labor Statistics"
+    timezone: "America/New_York"
+    typical_time: "08:30:00"
+    conservative_rule: {kind: "next_month_day", day: 16, roll: "following_weekday"}
+    latest_official_release_ts: "2026-08-13T08:30:00-04:00"
+    official_url: "https://www.bls.gov/news.release/ppi.htm"
+  us_employment:
+    agency: "U.S. Bureau of Labor Statistics"
+    timezone: "America/New_York"
+    typical_time: "08:30:00"
+    conservative_rule: {kind: "next_month_day", day: 10, roll: "following_weekday"}
+    latest_official_release_ts: "2026-08-07T08:30:00-04:00"
+    official_url: "https://www.bls.gov/news.release/empsit.htm"
+  us_retail:
+    agency: "U.S. Census Bureau"
+    timezone: "America/New_York"
+    typical_time: "08:30:00"
+    conservative_rule: {kind: "next_month_day", day: 18, roll: "following_weekday"}
+    latest_official_release_ts: "2026-08-14T08:30:00-04:00"
+    official_url: "https://www.census.gov/retail/release_schedule.html"
+  us_ism_manufacturing:
+    agency: "Institute for Supply Management"
+    timezone: "America/New_York"
+    typical_time: "10:00:00"
+    conservative_rule: {kind: "next_month_business_ordinal", ordinal: 1}
+    latest_official_release_ts: "2026-08-03T10:00:00-04:00"
+    official_url: "https://www.ismworld.org/supply-management-news-and-reports/reports/rob-report-calendar/"
+  us_ism_services:
+    agency: "Institute for Supply Management"
+    timezone: "America/New_York"
+    typical_time: "10:00:00"
+    conservative_rule: {kind: "next_month_business_ordinal", ordinal: 3}
+    latest_official_release_ts: "2026-08-05T10:00:00-04:00"
+    official_url: "https://www.ismworld.org/supply-management-news-and-reports/reports/rob-report-calendar/"
+  us_industrial_production:
+    agency: "Federal Reserve Board"
+    timezone: "America/New_York"
+    typical_time: "09:15:00"
+    conservative_rule: {kind: "next_month_day", day: 19, roll: "following_weekday"}
+    latest_official_release_ts: "2026-08-18T09:15:00-04:00"
+    official_url: "https://www.federalreserve.gov/releases/g17/"
+
+series:
+  - id: "cn_cpi_mom"
+    workbook_column: 2
+    workbook_name: "中国:CPI:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "cn_prices"
+    transformation: "level"
+    plausible_range: [-5.0, 5.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-09"
+    reconciliation_status: "official_match"
+  - id: "cn_ppi_mom"
+    workbook_column: 3
+    workbook_name: "中国:PPI:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "cn_prices"
+    transformation: "level"
+    plausible_range: [-10.0, 10.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-09"
+    reconciliation_status: "official_match"
+  - id: "cn_manufacturing_pmi"
+    workbook_column: 4
+    workbook_name: "中国:制造业PMI"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "cn_pmi"
+    transformation: "distance_from_50"
+    plausible_range: [20.0, 80.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-07-31"
+    reconciliation_status: "official_match"
+  - id: "cn_manufacturing_new_export_orders"
+    workbook_column: 5
+    workbook_name: "中国:制造业PMI:新出口订单"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "cn_pmi"
+    transformation: "distance_from_50"
+    plausible_range: [20.0, 80.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-07-31"
+    reconciliation_status: "official_match"
+  - id: "cn_industrial_production_mom"
+    workbook_column: 6
+    workbook_name: "中国:工业增加值:规模以上工业企业:季调:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "cn_activity"
+    transformation: "level"
+    plausible_range: [-30.0, 30.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-17"
+    reconciliation_status: "official_match"
+  - id: "cn_retail_sales_yoy"
+    workbook_column: 7
+    workbook_name: "中国:社会消费品零售总额:当月同比(1-2月合并)"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "jan_feb_combined"
+    release_group: "cn_activity"
+    transformation: "change_3"
+    plausible_range: [-50.0, 50.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-17"
+    reconciliation_status: "official_match"
+  - id: "cn_real_gdp_yoy"
+    workbook_column: 8
+    workbook_name: "中国:GDP:不变价:同比"
+    unit: "%"
+    frequency: "quarterly"
+    period_policy: "quarter_end_only"
+    release_group: "cn_gdp"
+    transformation: "change_4"
+    plausible_range: [-30.0, 30.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-06-30"
+    latest_workbook_update: "2026-08-11"
+    reconciliation_status: "late_vendor_update"
+    reconciliation_note: "Official detailed Q2 release was 2026-07-16; workbook date is 26 days later."
+  - id: "cn_tsf_stock_yoy"
+    workbook_column: 9
+    workbook_name: "中国:社会融资规模存量:同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "cn_money"
+    transformation: "change_3"
+    plausible_range: [-20.0, 40.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-14"
+    reconciliation_status: "date_match_time_unverified"
+  - id: "cn_m1_yoy"
+    workbook_column: 10
+    workbook_name: "中国:M1:同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "jan_feb_combined"
+    release_group: "cn_money"
+    transformation: "change_3"
+    plausible_range: [-30.0, 50.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-14"
+    reconciliation_status: "date_match_time_unverified"
+  - id: "cn_m2_yoy"
+    workbook_column: 11
+    workbook_name: "中国:M2:同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "cn_money"
+    transformation: "change_3"
+    plausible_range: [-10.0, 40.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-14"
+    reconciliation_status: "date_match_time_unverified"
+  - id: "cn_home_sales_area_ytd_yoy"
+    workbook_column: 12
+    workbook_name: "中国:商品房销售面积:累计同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "jan_feb_combined"
+    release_group: "cn_activity"
+    transformation: "change_3"
+    plausible_range: [-80.0, 100.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-17"
+    reconciliation_status: "official_match"
+  - id: "cn_property_investment_ytd_yoy"
+    workbook_column: 13
+    workbook_name: "中国:房地产开发投资完成额:累计同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "jan_feb_combined"
+    release_group: "cn_activity"
+    transformation: "change_3"
+    plausible_range: [-80.0, 100.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-17"
+    reconciliation_status: "official_match"
+  - id: "cn_trade_balance_yoy"
+    workbook_column: 14
+    workbook_name: "中国:贸易差额:当月同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "cn_trade"
+    transformation: "winsorized_level"
+    plausible_range: [-2500.0, 2500.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-18"
+    reconciliation_status: "late_vendor_update"
+    reconciliation_note: "Customs headline was released 2026-08-07; workbook date is 11 days later."
+  - id: "us_real_gdp_yoy"
+    workbook_column: 15
+    workbook_name: "美国:GDP:不变价:季调:折年数:同比"
+    unit: "%"
+    frequency: "quarterly"
+    period_policy: "quarter_end_only"
+    release_group: "us_gdp"
+    transformation: "change_4"
+    plausible_range: [-30.0, 30.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-06-30"
+    latest_workbook_update: "2026-07-30"
+    reconciliation_status: "official_match"
+  - id: "us_cpi_nsa_mom"
+    workbook_column: 16
+    workbook_name: "美国:CPI:非季调:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_cpi"
+    transformation: "level"
+    plausible_range: [-5.0, 5.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-12"
+    reconciliation_status: "official_match"
+  - id: "us_core_cpi_nsa_mom"
+    workbook_column: 17
+    workbook_name: "美国:核心CPI:非季调:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_cpi"
+    transformation: "level"
+    plausible_range: [-5.0, 5.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-12"
+    reconciliation_status: "official_match"
+  - id: "us_core_pce_sa_mom"
+    workbook_column: 18
+    workbook_name: "美国:核心PCE价格指数:季调:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_pce"
+    transformation: "level"
+    plausible_range: [-5.0, 5.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-06-30"
+    latest_workbook_update: "2026-07-30"
+    reconciliation_status: "official_match"
+  - id: "us_ppi_final_demand_sa_mom"
+    workbook_column: 19
+    workbook_name: "美国:PPI:最终需求:季调:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_ppi"
+    transformation: "level"
+    plausible_range: [-10.0, 10.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-13"
+    reconciliation_status: "official_match"
+  - id: "us_ppi_goods_sa_mom"
+    workbook_column: 20
+    workbook_name: "美国:PPI:最终需求:商品:季调:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_ppi"
+    transformation: "level"
+    plausible_range: [-20.0, 20.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-13"
+    reconciliation_status: "official_match"
+  - id: "us_ppi_services_sa_mom"
+    workbook_column: 21
+    workbook_name: "美国:PPI:最终需求:服务:季调:环比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_ppi"
+    transformation: "level"
+    plausible_range: [-10.0, 10.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-13"
+    reconciliation_status: "official_match"
+  - id: "us_unemployment_u3_sa"
+    workbook_column: 22
+    workbook_name: "美国:失业率:U3:季调"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_employment"
+    transformation: "change_3"
+    plausible_range: [0.1, 30.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-07"
+    reconciliation_status: "official_match"
+  - id: "us_unemployment_u6_sa"
+    workbook_column: 23
+    workbook_name: "美国:失业率:U6:季调"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_employment"
+    transformation: "change_3"
+    plausible_range: [0.1, 40.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-07"
+    reconciliation_status: "official_match"
+  - id: "us_unemployment_u1_sa"
+    workbook_column: 24
+    workbook_name: "美国:失业率:U1:季调"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_employment"
+    transformation: "change_3"
+    plausible_range: [0.1, 20.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-07"
+    reconciliation_status: "official_match"
+  - id: "us_retail_sales_yoy"
+    workbook_column: 25
+    workbook_name: "美国:零售和食品服务销售额:季调:当月同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_retail"
+    transformation: "change_3"
+    plausible_range: [-50.0, 80.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-14"
+    reconciliation_status: "official_match"
+  - id: "us_ism_manufacturing_pmi"
+    workbook_column: 26
+    workbook_name: "美国:ISM:制造业PMI"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_ism_manufacturing"
+    transformation: "distance_from_50"
+    plausible_range: [20.0, 80.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-03"
+    reconciliation_status: "official_match"
+  - id: "us_ism_services_pmi"
+    workbook_column: 27
+    workbook_name: "美国:ISM:服务业PMI"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_ism_services"
+    transformation: "distance_from_50"
+    plausible_range: [20.0, 80.0]
+    zero_is_valid: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-05"
+    reconciliation_status: "official_match"
+  - id: "us_retail_sales_yoy_duplicate"
+    workbook_column: 28
+    workbook_name: "美国:零售和食品服务销售额:季调:当月同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_retail"
+    duplicate_of: "us_retail_sales_yoy"
+    include: false
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-14"
+    reconciliation_status: "exact_duplicate_excluded"
+  - id: "us_industrial_production_yoy"
+    workbook_column: 29
+    workbook_name: "美国:工业产出指数:季调:当月同比"
+    unit: "%"
+    frequency: "monthly"
+    period_policy: "month_end"
+    release_group: "us_industrial_production"
+    transformation: "change_3"
+    plausible_range: [-30.0, 30.0]
+    zero_is_valid: true
+    latest_reference_period: "2026-07-31"
+    latest_workbook_update: "2026-08-18"
+    reconciliation_status: "official_match"

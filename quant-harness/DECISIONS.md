@@ -136,3 +136,50 @@
   - 在本地 Codespace 里用 `CronCreate`/本地 cron 定时跑：本地任务只在 REPL 空闲时触发、且 Codespace 不保证一直开着，不适合"每天必须跑"的需求，未采用。
 - 影响: 之后如果改了 `reporting/position_management.py` 等新模块，需要记得同步更新云端 routine 的运行步骤（routine 的 prompt 是写死的文本，不会自动感知代码变化）。routine 管理入口：https://claude.ai/code/routines/trig_01SgYsm7Xz34XYhaeK3BSPQj。
 - 关联: D008
+
+## D011 - wind_macro_daily 保持策略自包含并提交合成样例产物
+
+- 日期: 2026-08-23
+- 状态: 已采纳
+- 背景: 新策略同时包含 Wind 抓取、因子、参数、持仓、回测和绩效产物；需要沿用 quant-harness，且当前机器 WindPy 会话返回 ErrorCode=-2，无法取得可审计的实时数据。
+- 决策: 策略放在 `strategies/wind_macro_daily/` 内并保持自包含；生产 Wind 原始/清洗数据继续忽略，只提交明确标注的确定性合成样例数据、因子、持仓、回测及 `reports/wind_macro_daily/` 的 performance/manifest。信号通过 `PointInTimeFrame` 计算，持仓滞后一日参与收益，不修改共享 `core/` 接口。
+- 备选方案:
+  - 把原独立 wind_pipeline 直接放到仓库根目录：会绕过现有策略契约、walk-forward 和 gate，未采用。
+  - 为让示例通过 gate 调整因子或放宽阈值：合成数据绩效不代表策略有效性，也违反 gate 不能为通过而放松的原则，未采用。
+- 影响: `reports/wind_macro_daily/` 成为继 fx_correlation 后第二个允许提交的报告目录；实时回测前必须完成 Wind 代码、available timestamp、宏观 vintage、bid/ask 与滑点审计。
+- 关联: D001、D002、D003、`strategies/wind_macro_daily/README.md`
+
+## D012 - 手工 Wind 工作簿采用保守发布时间字典并区分 release leakage 与 revision leakage
+
+- 日期: 2026-08-23
+- 状态: 已采纳
+- 背景: `Raw_wind.xlsx` 的宏观 sheet 以统计期末为日期，第 4 行只记录每列最新一期更新时间；若直接按月末向前填充会产生明显未来函数，但单凭这行也无法还原 2020 年以来每个历史 vintage。
+- 决策: 新增机器可读 `release_dictionary.yaml`，逐列记录来源、频率、统计期规则、发布时间/时区、保守历史规则、最新官方日期核验、零值含义和修订风险；加载器将宏观值转换到香港 16:30 决策时钟下的 `available_session` 后才允许进入 `PointInTimeFrame`。发布时间匹配只解决 release-timing leakage；当前修订后快照统一标记 `strict_point_in_time_eligible=false`。手工工作簿不含精确美中 5Y IRS，因此真实数据回测仅启用四个 FX，不以美债收益率冒充 IRS。
+- 备选方案:
+  - 把所有宏观值统一滞后一个月：简单但对 PMI 等同月发布指标过度滞后，对特殊延迟又不一定安全，未采用。
+  - 直接使用第 4 行日期覆盖整列历史：会把 2020 年数据全部推迟到 2026 年，失去研究意义，且仍不能重建历史 vintage，未采用。
+  - 用美国国债 5Y 代替美国 IRS、用空列补中国 IRS：会把代理资产的绩效误标成目标资产，未采用。
+- 影响: 新增 `manual_excel` 数据模式、逐因子 walk-forward 持久化、参数与 OOS 报告分层目录；真实宏观回测在获得历史 vintage 前必须带 research-only 警告。
+- 关联: D001、D011、`strategies/wind_macro_daily/data/release_dictionary.yaml`
+
+## D013 - 共享配置读取统一显式使用 UTF-8
+
+- 日期: 2026-08-23
+- 状态: 已采纳
+- 背景: Windows 默认代码页为 GBK；当策略 `config.yaml` 含中文 Wind 指标名时，`core.reporting.gate` 和 `core.validation.walk_forward` 的默认编码读取会抛 `UnicodeDecodeError`。
+- 决策: 共享 gate、walk-forward 配置与 bias scanner 源码读取显式声明 `encoding="utf-8"`，与仓库其余 YAML/Markdown/Python 文件编码一致。
+- 备选方案: 把中文指标名转义或移出配置；会降低手工映射可读性且没有解决共享代码的跨平台编码缺陷，未采用。
+- 影响: 不改变接口或计算逻辑；所有策略可安全使用 UTF-8 配置。
+- 关联: D012、`core/reporting/gate.py`、`core/validation/walk_forward.py`、`core/validation/bias_check.py`
+
+## D014 - wind_macro_daily 以逐标的逐因子 OOS 验证为主，并将美债与 IRS 严格分离
+
+- 日期: 2026-08-23
+- 状态: 已采纳
+- 背景: 跨资产组合 Sharpe 会混合仓位缩放、相关性和交易成本，不能回答某个技术指标是否适用于某个具体交易标的；同时手工工作簿已有美国国债收益率但仍缺少精确的美中 IRS 报价。
+- 决策: 主验证键改为 `instrument × factor × walk-forward window`，有效性只依据该标的自身 OOS 窗口判定；组合结果保留为可选附加输出。美国国债 2Y/5Y/10Y/30Y 以独立 UST 标的接入，正仓位定义为多久期，收益使用 `-duration × Δyield / 100` 一阶近似。美债不得映射为 SOFR IRS；缺少的 US/CN IRS 生成明确的 data-unavailable 状态和图。
+- 备选方案:
+  - 继续用组合 Sharpe 并附逐标的贡献：贡献仍受组合 gross cap 和其他资产影响，不能作为独立因子检验，未采用。
+  - 用 5Y Treasury 代理 5Y SOFR IRS：会混入 Treasury-swap spread 风险并错误标注交易品种，未采用。
+- 影响: 新增逐标的因子参数表、窗口结果、OOS 日收益、有效性标签、数据覆盖、harness 状态和可视化目录；原组合绩效门槛继续保留但不再决定某个标的/因子是否有效。持续改进项集中记录于 `strategies/wind_macro_daily/IMPROVEMENTS.yaml`。
+- 关联: D011、D012、D013、`strategies/wind_macro_daily/validation/run.py`

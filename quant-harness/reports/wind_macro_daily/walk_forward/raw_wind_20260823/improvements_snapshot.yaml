@@ -1,0 +1,61 @@
+schema_version: 1
+strategy: wind_macro_daily
+last_updated: '2026-08-23'
+improvements:
+- id: I001
+  status: adopted
+  priority: critical
+  area: validation
+  change: 将主验证单元由跨资产组合改为 instrument × factor。
+  harness_rule: 有效因子必须逐标的通过全部样本外阈值；组合Sharpe只能作为资产配置附加结果。
+- id: I002
+  status: adopted
+  priority: critical
+  area: rates_pnl
+  change: 美国国债和IRS使用久期近似收益，不再对收益率取对数收益。
+  harness_rule: 正仓位代表多久期/收固定；日收益约为 -duration × 收益率百分点变化 / 100。
+- id: I003
+  status: adopted
+  priority: high
+  area: universe
+  change: 加入美国国债2Y、5Y、10Y、30Y并保持与美国IRS标签严格分离。
+  harness_rule: Treasury yield不能映射或标记为SOFR IRS。
+- id: I004
+  status: open
+  priority: critical
+  area: data
+  change: 补充中国5Y FR007 IRS真实日度收盘或中间价。
+  required_data: date, 5Y FR007 IRS par rate, unit, close timestamp, source
+  harness_rule: 缺少精确序列时标记data_unavailable，不生成伪回测。
+- id: I005
+  status: open
+  priority: high
+  area: carry
+  change: 补充FX远期点/OIS差及国债或IRS可实现carry-roll数据。
+  required_data: matched-tenor forward points or curves, funding rate, roll convention
+  harness_rule: 无有效输入时carry必须为unavailable，不能把零收益识别为有效策略。
+- id: I006
+  status: open
+  priority: critical
+  area: macro_vintage
+  change: 保存宏观指标首次发布值和每次修订的历史vintage。
+  required_data: reference_date, exact_release_ts, vintage_id, value
+  harness_rule: 当前修订后历史只能用于research_only；发布时间对齐不能消除修订泄露。
+- id: I007
+  status: open
+  priority: high
+  area: costs
+  change: 用逐标的bid/ask、DV01、期货转换因子或实际IRS执行成本替换固定bps假设。
+  harness_rule: 上线前必须完成成本压力测试，至少使用基准、1.5倍和2倍成本。
+- id: I008
+  status: adopted
+  priority: high
+  area: reporting
+  change: 输出逐标的净值/回撤图、因子有效性热图及机器可读harness_status.json。
+  harness_rule: 每次手工数据更新必须使用新run_id，并保留参数和OOS输出快照。
+- id: I009
+  status: adopted
+  priority: medium
+  area: performance
+  change: 独立因子网格使用严格后向rolling、shift(1)的向量化实现。
+  harness_rule: 向量化结果必须保留滞后一日仓位、滚动窗口和单元测试，禁止居中窗口或负向shift。

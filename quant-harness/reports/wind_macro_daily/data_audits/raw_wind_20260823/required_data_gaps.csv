@@ -1,0 +1,5 @@
+required_item,status,needed_data,frequency
+US_IRS_5Y,missing,"5Y SOFR OIS/IRS par rate, not Treasury yield",daily close
+CN_IRS_5Y,missing,5Y FR007 IRS par rate,daily close
+FX carry inputs,missing,matched-tenor USD/CNY/JPY/AUD/EUR OIS or forward points,daily close
+historical macro vintages,missing,"reference date, exact release timestamp, vintage id, value",each release and revision

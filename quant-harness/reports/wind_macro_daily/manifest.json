@@ -1,0 +1,39 @@
+{
+  "strategy": "wind_macro_daily",
+  "data_mode": "synthetic",
+  "warning": "Engineering smoke test only; not market data or investment evidence.",
+  "artifacts": {
+    "strategies/wind_macro_daily/data/sample/market_data.csv.gz": {
+      "rows": 2088,
+      "sha256": "0ea7d77707261692468411d9d5cd5d1d2943e3baed6273408ce8273044644aa4"
+    },
+    "strategies/wind_macro_daily/factors/output/sample/factor_values.csv.gz": {
+      "rows": 7987,
+      "sha256": "d810df81646e455ec76c7b9effb7a7e1063653b952a308a9854d5f54082df3fe"
+    },
+    "strategies/wind_macro_daily/strategy_output/sample/positions.csv.gz": {
+      "rows": 1332,
+      "sha256": "46236bb2ce0fd3fd2b843d986bb6d58a13ce1b3caf0988c623bf0adcafd59e33"
+    },
+    "strategies/wind_macro_daily/backtest/output/sample/daily_pnl.csv.gz": {
+      "rows": 1332,
+      "sha256": "c3a50146ff1d4c14769fb4566d875012407e15ef4cf95f28290270a9ff546a50"
+    },
+    "reports/wind_macro_daily/equity_curve.csv": {
+      "rows": 1332,
+      "sha256": "db921949a731ccac823be72735f3b828d96e7892d8bce82675cf13887c5ad3fe"
+    },
+    "reports/wind_macro_daily/metrics.json": {
+      "rows": 6,
+      "sha256": "f3ee178563ca0cf17c9a0f7c11c62f18eb15ab9070b9b25703911586c08003c8"
+    },
+    "reports/wind_macro_daily/metrics_by_instrument.csv": {
+      "rows": 7,
+      "sha256": "4c3e058a0e56a74766e5601f9893312249b34591ba0a6da91391522d2bf4211d"
+    },
+    "reports/wind_macro_daily/parameters_snapshot.yaml": {
+      "rows": 89,
+      "sha256": "18f8a67e721451d0e73e302db96ed673c076de58f63cfe3549e80e0deac6d0bd"
+    }
+  }
+}

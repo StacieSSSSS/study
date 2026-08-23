@@ -1,0 +1,4 @@
+interface:
+  display_name: "Evaluate Strategy Performance"
+  short_description: "Run backtests, walk-forward checks, and performance review"
+  default_prompt: "Use $evaluate-strategy-performance to evaluate the latest wind_macro_daily data and summarize out-of-sample performance."

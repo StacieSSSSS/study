@@ -1,0 +1,11 @@
+instrument,asset_class,data_status,reason
+UST_2Y,UST,available,workbook column mapped and usable
+UST_5Y,UST,available,workbook column mapped and usable
+UST_10Y,UST,available,workbook column mapped and usable
+UST_30Y,UST,available,workbook column mapped and usable
+US_IRS_5Y,IRS,missing,需要5Y SOFR OIS/IRS par rate；美国国债收益率不能替代IRS
+CN_IRS_5Y,IRS,missing,需要5Y FR007 IRS每日收盘/中间价；当前工作簿没有该列
+USDCNY,FX,available,workbook column mapped and usable
+USDJPY,FX,available,workbook column mapped and usable
+AUDUSD,FX,available,workbook column mapped and usable
+EURUSD,FX,available,workbook column mapped and usable

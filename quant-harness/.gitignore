@@ -9,6 +9,17 @@ reports/*/
 # DECISIONS.md D008). Other strategies' reports/ stay ignored by default.
 !reports/fx_correlation/
 !reports/fx_correlation/**
+# wind_macro_daily keeps only deterministic sample performance outputs in git.
+!reports/wind_macro_daily/
+!reports/wind_macro_daily/**
 .venv/
+.uv-cache-local/
 *.egg-info/
 strategies/*/data/cache/
+strategies/*/data/raw/
+strategies/*/data/clean/
+strategies/*/data/manual/
+strategies/*/factors/output/manual/
+strategies/*/strategy_output/manual/
+strategies/*/backtest/output/manual/
+Raw_wind.xlsx
