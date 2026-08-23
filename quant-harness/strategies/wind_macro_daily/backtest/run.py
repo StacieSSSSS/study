@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import argparse
+import copy
 import gzip
 import hashlib
 import json
@@ -13,6 +15,7 @@ import pandas as pd
 
 from core.data.point_in_time import PointInTimeFrame
 from core.metrics.performance import summarize
+from strategies.wind_macro_daily.data.excel_loader import ManualExcelBundle, load_manual_excel_bundle
 from strategies.wind_macro_daily.data.loader import CONFIG_PATH, load_config, load_raw
 from strategies.wind_macro_daily.factors.engine import factor_snapshot
 from strategies.wind_macro_daily.signals.signal import generate_signal
@@ -21,7 +24,21 @@ STRATEGY_NAME = "wind_macro_daily"
 
 
 def load_data() -> pd.DataFrame:
+    """Compatibility entrypoint used by the shared harness."""
     return load_raw()
+
+
+def _active_config(config: dict[str, Any], data: pd.DataFrame) -> dict[str, Any]:
+    run_config = copy.deepcopy(config)
+    active = [
+        instrument
+        for instrument in config["universe"]
+        if f"{instrument}__close" in data and f"{instrument}__return" in data
+    ]
+    if not active:
+        raise ValueError("no configured instruments have both close and return columns")
+    run_config["universe"] = active
+    return run_config
 
 
 def _returns(data: pd.DataFrame, universe: list[str]) -> pd.DataFrame:
@@ -36,6 +53,7 @@ def _run_over_dates(
     history: pd.DataFrame,
     dates: pd.DatetimeIndex,
     config: dict[str, Any],
+    signal_variant: str = "composite_signal",
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     universe = config["universe"]
     returns = _returns(history, universe)
@@ -45,8 +63,10 @@ def _run_over_dates(
 
     for as_of in dates:
         view = pit.as_of(as_of)
-        signal = generate_signal(pit, as_of, config)
-        factor_frames.append(factor_snapshot(pit, as_of, config))
+        signal = generate_signal(pit, as_of, config, signal_variant=signal_variant)
+        snapshot = factor_snapshot(pit, as_of, config)
+        snapshot["signal_variant"] = signal_variant
+        factor_frames.append(snapshot)
         volatility = (
             _returns(view, universe)
             .tail(int(risk["volatility_window"]))
@@ -56,7 +76,7 @@ def _run_over_dates(
         scalar = (float(risk["target_volatility"]) / volatility).clip(
             upper=float(risk["max_instrument_leverage"])
         )
-        target = (signal * scalar).fillna(0.0)
+        target = (signal * scalar).replace([np.inf, -np.inf], np.nan).fillna(0.0)
         gross = float(target.abs().sum())
         if gross > float(risk["max_portfolio_gross"]):
             target *= float(risk["max_portfolio_gross"]) / gross
@@ -83,12 +103,14 @@ def _run_over_dates(
 
 
 def evaluate_window(train_df: pd.DataFrame, test_df: pd.DataFrame) -> dict[str, float]:
-    config = load_config()
+    """Compatibility evaluator for the shared composite-signal walk-forward command."""
+    config = _active_config(load_config(), pd.concat([train_df, test_df]))
     history = pd.concat([train_df, test_df]).sort_index()
     pit = PointInTimeFrame(history)
     dates = cast(pd.DatetimeIndex, test_df.index)
     positions, instrument_pnl, _ = _run_over_dates(pit, history, dates, config)
-    return summarize(instrument_pnl.sum(axis=1), positions)
+    portfolio = instrument_pnl.sum(axis=1, min_count=1).fillna(0.0)
+    return summarize(portfolio, positions)
 
 
 def _write_csv(frame: pd.DataFrame, path: Path, index: bool = True) -> None:
@@ -109,24 +131,93 @@ def _line_count(path: Path) -> int:
         return sum(1 for _ in handle)
 
 
-def main() -> None:
+def _artifact_paths(data_mode: str, run_id: str) -> tuple[Path, Path, Path, Path]:
+    if data_mode == "manual_excel":
+        data_path = (
+            Path("strategies") / STRATEGY_NAME / "data" / "manual" / run_id / "market_data.csv.gz"
+        )
+        factor_path = (
+            Path("strategies")
+            / STRATEGY_NAME
+            / "factors"
+            / "output"
+            / "manual"
+            / run_id
+            / "factor_values.csv.gz"
+        )
+        position_path = (
+            Path("strategies")
+            / STRATEGY_NAME
+            / "strategy_output"
+            / "manual"
+            / run_id
+            / "positions.csv.gz"
+        )
+        backtest_path = (
+            Path("strategies")
+            / STRATEGY_NAME
+            / "backtest"
+            / "output"
+            / "manual"
+            / run_id
+            / "daily_pnl.csv.gz"
+        )
+        return data_path, factor_path, position_path, backtest_path
+
+    tag = "sample" if data_mode == "synthetic" else "wind"
+    return (
+        Path("strategies") / STRATEGY_NAME / "data" / tag / "market_data.csv.gz",
+        Path("strategies") / STRATEGY_NAME / "factors" / "output" / tag / "factor_values.csv.gz",
+        Path("strategies") / STRATEGY_NAME / "strategy_output" / tag / "positions.csv.gz",
+        Path("strategies") / STRATEGY_NAME / "backtest" / "output" / tag / "daily_pnl.csv.gz",
+    )
+
+
+def _load_for_run(
+    config: dict[str, Any], data_mode: str, workbook: str | None
+) -> tuple[pd.DataFrame, ManualExcelBundle | None]:
+    if data_mode == "manual_excel":
+        bundle = load_manual_excel_bundle(config, workbook)
+        return bundle.market_data, bundle
+    return load_raw(mode_override=data_mode), None
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Run the wind_macro_daily backtest")
+    parser.add_argument("--data-mode", choices=["synthetic", "wind", "manual_excel"], default=None)
+    parser.add_argument("--workbook", default=None, help="manual workbook path")
+    parser.add_argument("--run-id", default=None, help="artifact folder name")
+    parser.add_argument("--signal-variant", default="composite_signal")
+    args = parser.parse_args(argv)
+
     config = load_config()
-    data = load_data()
+    data_mode = args.data_mode or str(config["data"]["mode"])
+    data, manual_bundle = _load_for_run(config, data_mode, args.workbook)
+    config = _active_config(config, data)
+    run_id = args.run_id or (
+        f"manual_{manual_bundle.workbook_sha256[:10]}" if manual_bundle else data_mode
+    )
     train_size = int(config["walk_forward"]["train_size"])
     test_df = data.iloc[train_size:]
     if test_df.empty:
         raise RuntimeError("not enough data after the reserved training window")
     pit = PointInTimeFrame(data)
     dates = cast(pd.DatetimeIndex, test_df.index)
-    positions, instrument_pnl, factor_values = _run_over_dates(pit, data, dates, config)
-    portfolio_returns = instrument_pnl.sum(axis=1)
+    positions, instrument_pnl, factor_values = _run_over_dates(
+        pit,
+        data,
+        dates,
+        config,
+        signal_variant=args.signal_variant,
+    )
+    portfolio_returns = instrument_pnl.sum(axis=1, min_count=1).fillna(0.0)
     metrics = summarize(portfolio_returns, positions)
     metrics_by_instrument = pd.DataFrame(
         [
             {
                 "instrument": instrument,
                 **summarize(
-                    cast(pd.Series, instrument_pnl[instrument]),
+                    cast(pd.Series, instrument_pnl[instrument]).fillna(0.0),
                     cast(pd.DataFrame, positions[[instrument]]),
                 ),
             }
@@ -135,24 +226,14 @@ def main() -> None:
     )
     equity = (1.0 + portfolio_returns).cumprod().rename("equity").to_frame()
 
-    sample_tag = "sample" if config["data"]["mode"] == "synthetic" else "wind"
-    data_path = Path("strategies") / STRATEGY_NAME / "data" / sample_tag / "market_data.csv.gz"
-    factor_path = (
-        Path("strategies")
-        / STRATEGY_NAME
-        / "factors"
-        / "output"
-        / sample_tag
-        / "factor_values.csv.gz"
-    )
-    position_path = (
-        Path("strategies") / STRATEGY_NAME / "strategy_output" / sample_tag / "positions.csv.gz"
-    )
-    backtest_path = (
-        Path("strategies") / STRATEGY_NAME / "backtest" / "output" / sample_tag / "daily_pnl.csv.gz"
-    )
-    report_dir = Path("reports") / STRATEGY_NAME
+    data_path, factor_path, position_path, backtest_path = _artifact_paths(data_mode, run_id)
+    report_root = Path("reports") / STRATEGY_NAME
+    report_dir = report_root / "backtests" / run_id
+    parameter_path = report_root / "parameters" / f"{run_id}.yaml"
+    manifest_path = report_root / "manifests" / f"{run_id}.json"
     report_dir.mkdir(parents=True, exist_ok=True)
+    parameter_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
 
     _write_csv(data, data_path)
     _write_csv(factor_values, factor_path, index=False)
@@ -161,9 +242,26 @@ def main() -> None:
     _write_csv(equity, report_dir / "equity_curve.csv")
     _write_csv(metrics_by_instrument, report_dir / "metrics_by_instrument.csv", index=False)
     (report_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
-    (report_dir / "parameters_snapshot.yaml").write_text(
-        CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    parameter_path.write_text(CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+
+    if manual_bundle is not None:
+        manual_dir = data_path.parent
+        _write_csv(
+            manual_bundle.macro_observations,
+            manual_dir / "macro_observations.csv.gz",
+            index=False,
+        )
+        _write_csv(manual_bundle.price_quality, manual_dir / "price_quality.csv", index=False)
+        _write_csv(
+            manual_bundle.macro_update_audit,
+            report_dir / "macro_update_audit.csv",
+            index=False,
+        )
+
+    latest_metrics = report_root / "metrics.json"
+    latest_parameters = report_root / "parameters_snapshot.yaml"
+    latest_metrics.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    latest_parameters.write_text(CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
 
     artifacts = [
         data_path,
@@ -173,20 +271,38 @@ def main() -> None:
         report_dir / "equity_curve.csv",
         report_dir / "metrics.json",
         report_dir / "metrics_by_instrument.csv",
-        report_dir / "parameters_snapshot.yaml",
+        parameter_path,
     ]
+    if manual_bundle is not None:
+        artifacts.extend(
+            [
+                data_path.parent / "macro_observations.csv.gz",
+                data_path.parent / "price_quality.csv",
+                report_dir / "macro_update_audit.csv",
+            ]
+        )
     manifest = {
         "strategy": STRATEGY_NAME,
-        "data_mode": config["data"]["mode"],
-        "warning": config["data"].get("synthetic_warning", ""),
+        "run_id": run_id,
+        "data_mode": data_mode,
+        "signal_variant": args.signal_variant,
+        "active_universe": config["universe"],
+        "workbook": (
+            {
+                "filename": manual_bundle.workbook_path.name,
+                "sha256": manual_bundle.workbook_sha256,
+                "strict_point_in_time_eligible": False,
+                "revision_warning": "release dates guarded; historical revised-vintage leakage remains",
+            }
+            if manual_bundle
+            else None
+        ),
         "artifacts": {
             path.as_posix(): {"rows": _line_count(path), "sha256": _sha256(path)}
             for path in artifacts
         },
     }
-    (report_dir / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"wrote {report_dir / 'metrics.json'}: {metrics}")
 
 

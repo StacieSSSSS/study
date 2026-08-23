@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from strategies.wind_macro_daily.data.excel_loader import load_manual_excel_bundle
+
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
 
@@ -123,11 +125,16 @@ def _wind_data(config: dict[str, Any]) -> pd.DataFrame:
     return output.dropna(how="all")
 
 
-def load_raw() -> pd.DataFrame:
+def load_raw(
+    mode_override: str | None = None,
+    workbook_path: str | Path | None = None,
+) -> pd.DataFrame:
     config = load_config()
-    mode = config["data"]["mode"]
+    mode = mode_override or config["data"]["mode"]
     if mode == "synthetic":
         return _synthetic_data(config)
     if mode == "wind":
         return _wind_data(config)
+    if mode == "manual_excel":
+        return load_manual_excel_bundle(config, workbook_path).market_data
     raise ValueError(f"unsupported data.mode: {mode}")

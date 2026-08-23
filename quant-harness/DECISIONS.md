@@ -148,3 +148,26 @@
   - 为让示例通过 gate 调整因子或放宽阈值：合成数据绩效不代表策略有效性，也违反 gate 不能为通过而放松的原则，未采用。
 - 影响: `reports/wind_macro_daily/` 成为继 fx_correlation 后第二个允许提交的报告目录；实时回测前必须完成 Wind 代码、available timestamp、宏观 vintage、bid/ask 与滑点审计。
 - 关联: D001、D002、D003、`strategies/wind_macro_daily/README.md`
+
+## D012 - 手工 Wind 工作簿采用保守发布时间字典并区分 release leakage 与 revision leakage
+
+- 日期: 2026-08-23
+- 状态: 已采纳
+- 背景: `Raw_wind.xlsx` 的宏观 sheet 以统计期末为日期，第 4 行只记录每列最新一期更新时间；若直接按月末向前填充会产生明显未来函数，但单凭这行也无法还原 2020 年以来每个历史 vintage。
+- 决策: 新增机器可读 `release_dictionary.yaml`，逐列记录来源、频率、统计期规则、发布时间/时区、保守历史规则、最新官方日期核验、零值含义和修订风险；加载器将宏观值转换到香港 16:30 决策时钟下的 `available_session` 后才允许进入 `PointInTimeFrame`。发布时间匹配只解决 release-timing leakage；当前修订后快照统一标记 `strict_point_in_time_eligible=false`。手工工作簿不含精确美中 5Y IRS，因此真实数据回测仅启用四个 FX，不以美债收益率冒充 IRS。
+- 备选方案:
+  - 把所有宏观值统一滞后一个月：简单但对 PMI 等同月发布指标过度滞后，对特殊延迟又不一定安全，未采用。
+  - 直接使用第 4 行日期覆盖整列历史：会把 2020 年数据全部推迟到 2026 年，失去研究意义，且仍不能重建历史 vintage，未采用。
+  - 用美国国债 5Y 代替美国 IRS、用空列补中国 IRS：会把代理资产的绩效误标成目标资产，未采用。
+- 影响: 新增 `manual_excel` 数据模式、逐因子 walk-forward 持久化、参数与 OOS 报告分层目录；真实宏观回测在获得历史 vintage 前必须带 research-only 警告。
+- 关联: D001、D011、`strategies/wind_macro_daily/data/release_dictionary.yaml`
+
+## D013 - 共享配置读取统一显式使用 UTF-8
+
+- 日期: 2026-08-23
+- 状态: 已采纳
+- 背景: Windows 默认代码页为 GBK；当策略 `config.yaml` 含中文 Wind 指标名时，`core.reporting.gate` 和 `core.validation.walk_forward` 的默认编码读取会抛 `UnicodeDecodeError`。
+- 决策: 共享 gate 与 walk-forward 配置读取显式声明 `encoding="utf-8"`，与仓库其余 YAML/Markdown 文件编码一致。
+- 备选方案: 把中文指标名转义或移出配置；会降低手工映射可读性且没有解决共享代码的跨平台编码缺陷，未采用。
+- 影响: 不改变接口或计算逻辑；所有策略可安全使用 UTF-8 配置。
+- 关联: D012、`core/reporting/gate.py`、`core/validation/walk_forward.py`

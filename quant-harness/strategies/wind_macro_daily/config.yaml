@@ -17,6 +17,59 @@ data:
     catalog_path: "strategies/wind_macro_daily/data/series_catalog.csv"
     observations_path: "strategies/wind_macro_daily/data/clean/observations.csv"
     windpy_path: "C:/Wind/Wind.NET.Client/WindNET/x64"
+  manual_excel:
+    path_env: "WIND_MACRO_WORKBOOK"
+    default_path: "../../Raw_wind.xlsx"
+    release_dictionary: "strategies/wind_macro_daily/data/release_dictionary.yaml"
+    max_price_forward_fill_business_days: 5
+    minimum_macro_components: 2
+    # The workbook has no exact US or China IRS quote. Never label a Treasury
+    # yield as a swap; real-data runs stay FX-only until exact IRS inputs exist.
+    price_map:
+      USDCNY: "美元兑人民币"
+      USDJPY: "美元兑日元"
+      AUDUSD: "澳元兑美元"
+      EURUSD: "欧元兑美元"
+    # Signed macro-regime exposures after point-in-time transformation and
+    # rolling standardization at the conservative availability timestamp.
+    macro_baskets:
+      USDCNY:
+        cn_manufacturing_pmi: -0.15
+        cn_manufacturing_new_export_orders: -0.10
+        cn_industrial_production_mom: -0.10
+        cn_retail_sales_yoy: -0.10
+        cn_cpi_mom: -0.05
+        cn_tsf_stock_yoy: -0.05
+        cn_m2_yoy: -0.05
+        us_ism_manufacturing_pmi: 0.10
+        us_ism_services_pmi: 0.10
+        us_unemployment_u3_sa: -0.10
+        us_cpi_nsa_mom: 0.05
+        us_core_pce_sa_mom: 0.05
+      USDJPY:
+        us_ism_manufacturing_pmi: 0.20
+        us_ism_services_pmi: 0.20
+        us_unemployment_u3_sa: -0.20
+        us_cpi_nsa_mom: 0.15
+        us_core_cpi_nsa_mom: 0.15
+        us_core_pce_sa_mom: 0.10
+      AUDUSD:
+        cn_manufacturing_pmi: 0.15
+        cn_manufacturing_new_export_orders: 0.10
+        cn_industrial_production_mom: 0.10
+        cn_trade_balance_yoy: 0.05
+        us_ism_manufacturing_pmi: -0.15
+        us_ism_services_pmi: -0.15
+        us_unemployment_u3_sa: 0.10
+        us_cpi_nsa_mom: -0.10
+        us_core_pce_sa_mom: -0.10
+      EURUSD:
+        us_ism_manufacturing_pmi: -0.25
+        us_ism_services_pmi: -0.25
+        us_unemployment_u3_sa: 0.20
+        us_cpi_nsa_mom: -0.15
+        us_core_cpi_nsa_mom: -0.10
+        us_core_pce_sa_mom: -0.05
 
 instruments:
   US_IRS_5Y:
@@ -80,10 +133,15 @@ walk_forward:
   train_size: 756
   test_size: 252
   step: 252
+  signal_variants:
+    - momentum
+    - carry_signal
+    - mean_reversion
+    - macro_signal
+    - composite_signal
 
 # Deliberate production bar. Synthetic smoke output is not tuned to pass it.
 gate:
   min_sharpe: 0.5
   max_drawdown: -0.20
   max_turnover: 1.5
-

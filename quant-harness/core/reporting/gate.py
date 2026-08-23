@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     strategy_dir = Path("strategies") / args.strategy
-    with open(strategy_dir / "config.yaml") as f:
+    with open(strategy_dir / "config.yaml", encoding="utf-8") as f:
         config = yaml.safe_load(f)
     thresholds = config.get("gate", {})
 
@@ -55,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"perf-gate FAILED: no metrics found at {metrics_path} — run the backtest first")
         return 1
 
-    with open(metrics_path) as f:
+    with open(metrics_path, encoding="utf-8") as f:
         metrics = json.load(f)
 
     violations = check_thresholds(metrics, thresholds)

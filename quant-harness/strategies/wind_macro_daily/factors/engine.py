@@ -61,7 +61,13 @@ def factor_snapshot(
             [weights["momentum"], weights["carry"], weights["mean_reversion"], weights["macro"]],
             dtype=float,
         )
-        composite = float(np.dot(values, factor_weights)) if np.isfinite(values).all() else float("nan")
+        available = np.isfinite(values) & np.isfinite(factor_weights)
+        available_weight = float(factor_weights[available].sum())
+        composite = (
+            float(np.dot(values[available], factor_weights[available]) / available_weight)
+            if available.any() and available_weight > 0.0
+            else float("nan")
+        )
         rows.append(
             {
                 "date": as_of,

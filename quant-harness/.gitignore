@@ -17,3 +17,8 @@ reports/*/
 strategies/*/data/cache/
 strategies/*/data/raw/
 strategies/*/data/clean/
+strategies/*/data/manual/
+strategies/*/factors/output/manual/
+strategies/*/strategy_output/manual/
+strategies/*/backtest/output/manual/
+Raw_wind.xlsx

@@ -66,7 +66,7 @@ def run_walk_forward(
 
 
 def _load_strategy_config(strategy_dir: str) -> dict:
-    with open(f"{strategy_dir}/config.yaml") as f:
+    with open(f"{strategy_dir}/config.yaml", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
