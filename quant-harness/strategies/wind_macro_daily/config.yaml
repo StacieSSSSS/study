@@ -1,0 +1,89 @@
+name: wind_macro_daily
+description: >
+  Daily multi-factor strategy for US and China IRS plus USDCNY, USDJPY,
+  AUDUSD and EURUSD. Combines price/rate momentum, carry, mean reversion
+  and macro regime signals with volatility targeting.
+engine: pandas
+
+universe: [US_IRS_5Y, CN_IRS_5Y, USDCNY, USDJPY, AUDUSD, EURUSD]
+
+data:
+  mode: synthetic
+  start: "2018-01-02"
+  end: "2025-12-31"
+  seed: 20260823
+  synthetic_warning: "Engineering smoke test only; not market data or investment evidence."
+  wind:
+    catalog_path: "strategies/wind_macro_daily/data/series_catalog.csv"
+    observations_path: "strategies/wind_macro_daily/data/clean/observations.csv"
+    windpy_path: "C:/Wind/Wind.NET.Client/WindNET/x64"
+
+instruments:
+  US_IRS_5Y:
+    asset_class: IRS
+    initial_level: 3.00
+    duration: 4.5
+    cost_bps: 0.8
+    close_dataset: us_irs_sofr_5y
+  CN_IRS_5Y:
+    asset_class: IRS
+    initial_level: 2.40
+    duration: 4.4
+    cost_bps: 0.8
+    close_dataset: cn_irs_fr007_5y
+  USDCNY:
+    asset_class: FX
+    initial_level: 6.70
+    cost_bps: 1.2
+    close_dataset: fx_spot_usdcny
+  USDJPY:
+    asset_class: FX
+    initial_level: 110.0
+    cost_bps: 0.8
+    close_dataset: fx_spot_usdjpy
+  AUDUSD:
+    asset_class: FX
+    initial_level: 0.72
+    cost_bps: 0.8
+    close_dataset: fx_spot_audusd
+  EURUSD:
+    asset_class: FX
+    initial_level: 1.15
+    cost_bps: 0.6
+    close_dataset: fx_spot_eurusd
+
+factors:
+  fast_window: 20
+  medium_window: 60
+  zscore_window: 252
+  signal_clip: 3.0
+  weights:
+    FX:
+      momentum: 0.40
+      carry: 0.25
+      mean_reversion: 0.10
+      macro: 0.25
+    IRS:
+      momentum: 0.40
+      carry: 0.20
+      mean_reversion: 0.15
+      macro: 0.25
+
+risk:
+  annualization: 252
+  volatility_window: 60
+  target_volatility: 0.10
+  max_instrument_leverage: 2.0
+  max_portfolio_gross: 1.5
+
+walk_forward:
+  train_size: 756
+  test_size: 252
+  step: 252
+
+# Deliberate production bar. Synthetic smoke output is not tuned to pass it.
+gate:
+  min_sharpe: 0.5
+  max_drawdown: -0.20
+  max_turnover: 1.5
+

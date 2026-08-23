@@ -136,3 +136,15 @@
   - 在本地 Codespace 里用 `CronCreate`/本地 cron 定时跑：本地任务只在 REPL 空闲时触发、且 Codespace 不保证一直开着，不适合"每天必须跑"的需求，未采用。
 - 影响: 之后如果改了 `reporting/position_management.py` 等新模块，需要记得同步更新云端 routine 的运行步骤（routine 的 prompt 是写死的文本，不会自动感知代码变化）。routine 管理入口：https://claude.ai/code/routines/trig_01SgYsm7Xz34XYhaeK3BSPQj。
 - 关联: D008
+
+## D011 - wind_macro_daily 保持策略自包含并提交合成样例产物
+
+- 日期: 2026-08-23
+- 状态: 已采纳
+- 背景: 新策略同时包含 Wind 抓取、因子、参数、持仓、回测和绩效产物；需要沿用 quant-harness，且当前机器 WindPy 会话返回 ErrorCode=-2，无法取得可审计的实时数据。
+- 决策: 策略放在 `strategies/wind_macro_daily/` 内并保持自包含；生产 Wind 原始/清洗数据继续忽略，只提交明确标注的确定性合成样例数据、因子、持仓、回测及 `reports/wind_macro_daily/` 的 performance/manifest。信号通过 `PointInTimeFrame` 计算，持仓滞后一日参与收益，不修改共享 `core/` 接口。
+- 备选方案:
+  - 把原独立 wind_pipeline 直接放到仓库根目录：会绕过现有策略契约、walk-forward 和 gate，未采用。
+  - 为让示例通过 gate 调整因子或放宽阈值：合成数据绩效不代表策略有效性，也违反 gate 不能为通过而放松的原则，未采用。
+- 影响: `reports/wind_macro_daily/` 成为继 fx_correlation 后第二个允许提交的报告目录；实时回测前必须完成 Wind 代码、available timestamp、宏观 vintage、bid/ask 与滑点审计。
+- 关联: D001、D002、D003、`strategies/wind_macro_daily/README.md`

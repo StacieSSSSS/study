@@ -23,6 +23,9 @@ fx_correlation = [
     "tabulate>=0.9",
     "matplotlib>=3.8",
 ]
+# strategies/wind_macro_daily uses base dependencies; WindPy is installed by
+# the licensed Wind terminal and is intentionally not a PyPI dependency.
+wind_macro_daily = []
 
 [tool.ruff]
 line-length = 110
